@@ -9,7 +9,7 @@ I have included brief details of the JS8Call command verbs and response types be
 Before you try this code, there are three videos you are going to want to watch:
 * Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534
 * Micro Blogging with JS8Call - Proof of Concept - https://youtu.be/Nxg5_hiKlqc
-* Microblog Server Part #1 - 
+* Microblog Server Part - Update 1 - https://youtu.be/jAE7RQ-oo5A
 
 PS: My programming skills are self taught and so don't be surprised if my coding standard are poor :-)
 
