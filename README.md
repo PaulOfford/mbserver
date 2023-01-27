@@ -5,6 +5,38 @@ The code here is a very simple (maybe simplistic) server.  mb_server supports tw
 
 I have included brief details of the JS8Call command verbs and response types below.
 
+## Microblog Commands
+An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
+
+* MB.LST - list all posts available - the output will be limited to a list of 5
+* MB.LST >n - list all posts with an id greater than n
+* MB.LST yyyy-mm-dd - list all posts dated yyyy-mm-dd
+* MB.LST >yyyy-mm-dd - list all posts created after yyyy-mm-dd
+* MB.GET n - get the post with the id n
+
+The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with MB.LST or MB.GET.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intential to allow for the widest range of normal JS8Call messages.
+
+## Microblog Post File
+A microblog post can contain any text content.  All text will be encoded as UTF8 and lower case letters will be shifted to upper case on transmission.
+
+The post file name must start with the blog ID and a date like this:
+
+nnnn - yyy-mm-dd - You chosen summary test
+
+Although we show four digits above for the reference (nnnn), the server supports any number of digits up to a value of 2000000000.
+
+## Installation
+
+* Pull the repo or download the zip file from here
+* Create a posts directory on your PC
+* Move the sample posts downloaded into the posts directory
+* Change the posts_dir variable in the script to reflect the location of the directory - note the use of \\ in Windows paths
+* In JS8Call go to File -> Settings -> Reporting
+* In the API section check Enable TCP Server API and Accept TCP Request
+* Run the mb_server.py script
+
+Your station is now ready to accept calls for microblog posts.
+
 ## Before you get started
 Before you try this code, there are three videos you are going to want to watch:
 * Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534
