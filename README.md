@@ -30,7 +30,7 @@ Although we show four digits above for the reference (nnnn), the server supports
 * Pull the repo or download the zip file from here
 * Create a posts directory on your PC
 * Move the sample posts downloaded into the posts directory
-* Change the posts_dir variable in the script to reflect the location of the directory - note the use of \\ in Windows paths
+* Change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
 * In JS8Call go to File -> Settings -> Reporting
 * In the API section check Enable TCP Server API and Accept TCP Request
 * Run the mb_server.py script
