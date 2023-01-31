@@ -12,7 +12,15 @@ An operator can use the standard JS8Call Outgoing Message Area to send the follo
 * MB.LST >n - list all posts with an id greater than n
 * MB.LST yyyy-mm-dd - list all posts dated yyyy-mm-dd
 * MB.LST >yyyy-mm-dd - list all posts created after yyyy-mm-dd
+* MB.EXT - as per MB.LST but with list entries that include the date of the post
+* MB.EXT >n - as per MB.LST but with list entries that include the date of the post
+* MB.EXT yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
+* MB.EXT >yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
 * MB.GET n - get the post with the id n
+
+In the initial version of this code, MB.LST produced a listing that included the post date in each line of the listing.  MB.LST now lists the post ID and the description.  This has been done to reduce the time taken to send the listing.  MB.EXT has been added to provide a listing with the post dates.
+
+mb_server now supports shortened versions of the commands; M.L, M.E and M.G are equivalent to M.LST, M.EXT and M.GET respectively.
 
 The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with MB.LST or MB.GET.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intential to allow for the widest range of normal JS8Call messages.
 
