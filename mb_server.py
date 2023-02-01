@@ -45,7 +45,8 @@ replace_nl = False  # if True, \n characters in a post will be replaced with a s
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
 debug = False  # set to True to tests with simulated messages set in debug_json
-debug_request = 'MB.L'
+debug_request = 'NOT AN MB REQUEST'
+# debug_request = 'MB.L'
 # debug_request = 'MB.E'
 # debug_request = 'MB.L >22'
 # debug_request = 'MB.E >22'
@@ -158,28 +159,7 @@ class Request:
         return self.rc
 
 
-class MbServer:
-
-    first = True
-    connected = False
-    my_station = ''
-
-    def __init__(self):
-        logmsg('Connecting to JS8Call at ' + ':'.join(map(str, server)))
-        self.sock = socket(AF_INET, SOCK_STREAM)
-        try:
-            self.sock.connect(server)
-        except ConnectionRefusedError:
-            logmsg('Connection to JS8Call has been refused.')
-            print('Check that:')
-            print('* JS8Call is running')
-            print('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
-            print('* The API server port number in JS8Call matches the setting in this script - default is 2442')
-            print('* There are no firewall rules preventing the connection')
-            exit(1)
-        self.connected = True
-        logmsg('Connected to JS8Call')
-
+class CmdProcessors:
     @staticmethod
     def get_post_meta(filename, include_date):
         post = filename.replace(posts_dir, '')
@@ -301,6 +281,29 @@ class MbServer:
 
         return header + mb_message
 
+
+class MbServer:
+
+    first = True
+    connected = False
+    my_station = ''
+
+    def __init__(self):
+        logmsg('Connecting to JS8Call at ' + ':'.join(map(str, server)))
+        self.sock = socket(AF_INET, SOCK_STREAM)
+        try:
+            self.sock.connect(server)
+        except ConnectionRefusedError:
+            logmsg('Connection to JS8Call has been refused.')
+            print('Check that:')
+            print('* JS8Call is running')
+            print('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
+            print('* The API server port number in JS8Call matches the setting in this script - default is 2442')
+            print('* There are no firewall rules preventing the connection')
+            exit(1)
+        self.connected = True
+        logmsg('Connected to JS8Call')
+
     def send(self, *args, **kwargs):
         params = kwargs.get('params', {})
         if '_ID' not in params:
@@ -333,7 +336,8 @@ class MbServer:
                     return  # the received string isn't for us
 
                 elif request.rc == 0:
-                    mb_message = getattr(MbServer, request.processor)(self, request)
+                    procs = CmdProcessors()
+                    mb_message = getattr(CmdProcessors, request.processor)(procs, request)
                     self.send('TX.SEND_MESSAGE', mb_message)
 
                 else:
