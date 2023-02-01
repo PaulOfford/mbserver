@@ -232,9 +232,9 @@ class CmdProcessors:
 
     def mb_lst_by_id(self, request, include_date):
         if request.op == 'eq':
-            file_list = glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt')
+            file_list = sorted(glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt'))
         else:
-            file_list = glob.glob(posts_dir + '*.txt')
+            file_list = sorted(glob.glob(posts_dir + '*.txt'))
         list_text = ''
         found_post = False
         lst_count = 0
@@ -254,9 +254,9 @@ class CmdProcessors:
 
     def mb_lst_by_date(self, request, include_date):
         if request.op == 'eq':
-            file_list = glob.glob(posts_dir + '*' + request.date + '*.txt')
+            file_list = sorted(glob.glob(posts_dir + '*' + request.date + '*.txt'))
         else:
-            file_list = glob.glob(posts_dir + '*.txt')
+            file_list = sorted(glob.glob(posts_dir + '*.txt'))
         list_text = ''
         found_post = False
         lst_count = 0
@@ -308,7 +308,7 @@ class CmdProcessors:
         if request.post_id > 0:
             header += ' ' + str(request.post_id)
             found_post = False
-            file_list = glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt')
+            file_list = sorted(glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt'))
             for filename in file_list:
                 post = filename.replace(posts_dir, '')
                 temp = post.split(' ', 1)
@@ -334,6 +334,14 @@ class CmdProcessors:
 
         return header + mb_message
 
+
+class MbAnnouncement:
+
+    latest_post_id = 0
+    latest_post_date = '2000-01-01'
+
+    def latest_post_meta:
+    pass
 
 class MbServer:
 
