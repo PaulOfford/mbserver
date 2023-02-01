@@ -52,6 +52,7 @@ debug_request = 'MB.L'
 # debug_request = 'MB.L > 22'
 # debug_request = 'MB.L 2023-01-13'
 # debug_request = 'MB.E 2023-01-13'
+# debug_request = 'MB.E FRED'
 # debug_request = 'MB.L >2023-01-06'
 # debug_request = 'MB.E >2023-01-06'
 # debug_request = 'MB.L > 2023-01-06'
@@ -79,7 +80,86 @@ def to_message(typ, value='', params=None):
     return json.dumps({'type': typ, 'value': value, 'params': params})
 
 
-class MbServer(object):
+class Request:
+    # the following is a list of valid commands and
+    # their corresponding command processors in the MbServer class
+    cmd_list = {
+        'M.LST': 'process_mb_lst',
+        'M.L': 'process_mb_lst',
+        'M.EXT': 'process_mb_ext',
+        'M.E': 'process_mb_ext',
+        'M.GET': 'process_mb_get',
+        'M.G': 'process_mb_get',
+        'MB.LST': 'process_mb_lst',
+        'MB.L': 'process_mb_lst',
+        'MB.EXT': 'process_mb_ext',
+        'MB.E': 'process_mb_ext',
+        'MB.GET': 'process_mb_get',
+        'MB.G': 'process_mb_get',
+    }
+
+    caller = ''
+    rc = -1  # default not a microblog command
+    msg = ''
+    cmd = ''
+    op = ''
+    post_id = 0
+    date = ''
+    processor = ''
+
+    def validate_criteria(self, criteria):
+        if criteria[0:1] == '>':
+            self.op = 'gt'
+            criteria = criteria.replace('>', '')
+            criteria = criteria.replace(' ', '')  # eliminate any spaces
+        elif criteria[0:1] == '♢':
+            self.op = 'gt'
+            criteria = criteria.replace('♢', '')
+        else:
+            self.op = 'eq'
+
+        if criteria:
+            try:
+                self.post_id = int(criteria)
+                self.rc = 0
+                self.msg = 'OK'
+            except ValueError:
+                try:
+                    time.strptime(criteria, '%Y-%m-%d')
+                    self.date = criteria
+                    self.rc = 0
+                    self.msg = 'OK'
+                except ValueError:
+                    self.rc = 102
+                    self.msg = 'PARAMETER NOT INTEGER OR DATE'
+        else:
+            self.rc = 0
+            self.msg = 'OK'
+
+        return self.rc
+
+    def parse(self, request):
+        request_parts = re.split(' +', request)
+        self.caller = request_parts[0].replace(':', '')
+        if request_parts[2] in self.cmd_list:
+            self.processor = self.cmd_list[request_parts[2]]
+            self.cmd = request_parts[2]
+            logmsg('rx: ' + request)  # console trace of messages received
+            if debug:
+                logmsg(request_parts)
+            if len(request_parts) > 3:
+                # check Post ID and Date criteria
+                self.validate_criteria(request_parts[3])
+            else:
+                # there is no Post ID or Date criterion
+                self.rc = 0
+                self.op = 'gt'  # this will be greater than zero and so all posts
+
+        return self.rc
+
+
+class MbServer:
+
     first = True
     connected = False
     my_station = ''
@@ -101,73 +181,6 @@ class MbServer(object):
         logmsg('Connected to JS8Call')
 
     @staticmethod
-    def validate_criteria(criteria):
-        # default values
-        date = ''
-        post_id = 0
-
-        if criteria[0:1] == '>':
-            operator = 'gt'
-            criteria = criteria.replace('>', '')
-            criteria = criteria.replace(' ', '')  # eliminate any spaces
-        elif criteria[0:1] == '♢':
-            operator = 'gt'
-            criteria = criteria.replace('♢', '')
-        else:
-            operator = 'eq'
-
-        if criteria:
-            try:
-                post_id = int(criteria)
-                rc = 0
-                msg = 'OK'
-            except ValueError:
-                try:
-                    time.strptime(criteria, '%Y-%m-%d')
-                    date = criteria
-                    rc = 0
-                    msg = 'OK'
-                except ValueError:
-                    rc = 102
-                    msg = 'PARAMETER NOT INTEGER OR DATE'
-        else:
-            rc = 0
-            msg = 'OK'
-
-        return {'rc': rc, 'msg': msg, 'operator': operator, 'post_id': post_id, 'date': date}
-
-    def parse_request(self, request):
-        rc = -1  # default not a microblog command
-        msg = ''
-        cmd = ''
-        op = ''
-        post_id = 0
-        date = ''
-
-        request_parts = re.split(' +', request)
-        caller_callsign = request_parts[0].replace(':', '')
-        if request_parts[2] in ['MB.GET', 'MB.G', 'MB.LST', 'MB.L', 'MB.EXT', 'MB.E']:
-            cmd = request_parts[2][3:4]
-            logmsg('rx: ' + request)  # console trace of messages received
-            if debug:
-                logmsg(request_parts)
-            if len(request_parts) > 3:
-                # check Post ID and Date criteria
-                validation_result = self.validate_criteria(request_parts[3])
-                rc = validation_result['rc']
-                msg = validation_result['msg']
-                op = validation_result['operator']
-                post_id = validation_result['post_id']
-                date = validation_result['date']
-            else:
-                # there is no Post ID or Date criterion
-                rc = 0
-                op = 'gt'  # this will be greater than zero and so all posts
-
-        return {'rc': rc, 'msg': msg, 'caller': caller_callsign,
-                'cmd': cmd, 'operator': op, 'post_id': post_id, 'date': date}
-
-    @staticmethod
     def get_post_meta(filename, include_date):
         post = filename.replace(posts_dir, '')
         post = post.replace('.txt', '')
@@ -184,9 +197,9 @@ class MbServer(object):
 
         return {'post_id': post_id, 'date': date, 'list_text': list_text}
 
-    def mb_lst_by_id(self, op, post_id, include_date):
-        if op == 'eq':
-            file_list = glob.glob(posts_dir + '*' + str(post_id) + '*.txt')
+    def mb_lst_by_id(self, request, include_date):
+        if request.op == 'eq':
+            file_list = glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt')
         else:
             file_list = glob.glob(posts_dir + '*.txt')
         list_text = ''
@@ -194,7 +207,8 @@ class MbServer(object):
         lst_count = 0
         for filename in file_list:
             post = self.get_post_meta(filename, include_date)
-            if (op == 'gt' and post['post_id'] > post_id) or (op == 'eq' and post['post_id'] == post_id):
+            if (request.op == 'gt' and post['post_id'] > request.post_id)\
+                    or (request.op == 'eq' and post['post_id'] == request.post_id):
                 found_post = True
                 list_text += post['list_text']
                 lst_count += 1
@@ -205,17 +219,19 @@ class MbServer(object):
         else:
             return 'NO POSTS FOUND' + '\n'
 
-    def mb_lst_by_date(self, op, date, include_date):
-        if op == 'eq':
-            file_list = glob.glob(posts_dir + '*' + date + '*.txt')
+    def mb_lst_by_date(self, request, include_date):
+        if request.op == 'eq':
+            file_list = glob.glob(posts_dir + '*' + request.date + '*.txt')
         else:
             file_list = glob.glob(posts_dir + '*.txt')
         list_text = ''
         found_post = False
         lst_count = 0
+
         for filename in file_list:
             post = self.get_post_meta(filename, include_date)
-            if (op == 'gt' and post['date'] > date) or (op == 'eq' and post['date'] == date):
+            if (request.op == 'gt' and post['date'] > request.date)\
+                    or (request.op == 'eq' and post['date'] == request.date):
                 found_post = True
                 list_text += post['list_text']
                 lst_count += 1
@@ -227,17 +243,22 @@ class MbServer(object):
         else:
             return 'NO POSTS FOUND' + '\n'
 
-    def process_mb_lst(self, request, include_date):
-        # ToDo: replace the following clunky code
-        if include_date:
-            header = request['caller'] + ' MB EXT\n'  # call id of requestor
-        else:
-            header = request['caller'] + ' MB LST\n'  # call id of requestor
+    def process_mb_ext(self, request):
+        header = '%s +%s\n' % (request.caller, request.cmd)
 
-        if request['post_id'] > 0:
-            blog_list = self.mb_lst_by_id(request['operator'], request['post_id'], include_date)
+        if request.post_id > 0:
+            blog_list = self.mb_lst_by_id(request, include_date=True)
         else:
-            blog_list = self.mb_lst_by_date(request['operator'], request['date'], include_date)
+            blog_list = self.mb_lst_by_date(request, include_date=True)
+        return header + blog_list
+
+    def process_mb_lst(self, request):
+        header = '%s +%s\n' % (request.caller, request.cmd)
+
+        if request.post_id > 0:
+            blog_list = self.mb_lst_by_id(request, include_date=False)
+        else:
+            blog_list = self.mb_lst_by_date(request, include_date=False)
         return header + blog_list
 
     @staticmethod
@@ -247,21 +268,19 @@ class MbServer(object):
         return post
 
     def process_mb_get(self, request):
-        # validate the post id
-        header = request['caller'] + ' MB GET'  # call id of requestor
+        header = '%s +%s' % (request.caller, request.cmd)
 
         filename = ''
         mb_message = ''
-        post_id = request['post_id']
-        if post_id > 0:
-            header += ' ' + str(post_id)
+        if request.post_id > 0:
+            header += ' ' + str(request.post_id)
             found_post = False
-            file_list = glob.glob(posts_dir + '*' + str(post_id) + '*.txt')
+            file_list = glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt')
             for filename in file_list:
                 post = filename.replace(posts_dir, '')
                 temp = post.split(' ', 1)
                 this_post_id = int(temp[0])
-                if this_post_id == post_id:
+                if this_post_id == request.post_id:
                     found_post = True
                     break
             if found_post:
@@ -309,20 +328,16 @@ class MbServer(object):
 
         elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us
             if value:
-                request = self.parse_request(value)
-                if request['rc'] < 0:
+                request = Request()
+                if request.parse(value) < 0:
                     return  # the received string isn't for us
 
-                elif request['rc'] == 0:
-                    if request['cmd'] == 'L':
-                        self.send('TX.SEND_MESSAGE', self.process_mb_lst(request, include_date=False))
-                    elif request['cmd'] == 'E':
-                        self.send('TX.SEND_MESSAGE', self.process_mb_lst(request, include_date=True))
-                    elif request['cmd'] == 'G':
-                        self.send('TX.SEND_MESSAGE', self.process_mb_get(request))
+                elif request.rc == 0:
+                    mb_message = getattr(MbServer, request.processor)(self, request)
+                    self.send('TX.SEND_MESSAGE', mb_message)
 
                 else:
-                    mb_message = request['caller'] + ' MICROBLOG ' + request['msg']
+                    mb_message = '%s %s %s' % (request.caller, request.cmd, request.msg)
                     self.send('TX.SEND_MESSAGE', mb_message)
 
     def run_server(self):
