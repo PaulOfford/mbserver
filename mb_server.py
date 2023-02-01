@@ -68,17 +68,68 @@ def logmsg(msg_text):
     print(date_time, msg_text)
 
 
-def from_message(content):
-    try:
-        return json.loads(content)
-    except ValueError:
-        return {}
+class Js8CallApi:
 
+    connected = False
+    my_station = ''
 
-def to_message(typ, value='', params=None):
-    if params is None:
-        params = {}
-    return json.dumps({'type': typ, 'value': value, 'params': params})
+    def __init__(self):
+        self.sock = socket(AF_INET, SOCK_STREAM)
+
+    def connect(self):
+        logmsg('Connecting to JS8Call at ' + ':'.join(map(str, server)))
+        try:
+            api = self.sock.connect(server)
+            self.connected = True
+            logmsg('Connected to JS8Call')
+            return api
+
+        except ConnectionRefusedError:
+            logmsg('Connection to JS8Call has been refused.')
+            logmsg('Check that:')
+            logmsg('* JS8Call is running')
+            logmsg('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
+            logmsg('* The API server port number in JS8Call matches the setting in this script - default is 2442')
+            logmsg('* There are no firewall rules preventing the connection')
+            exit(1)
+
+    def set_my_station(self, station_id):
+        self.my_station = station_id
+        return
+
+    def listen(self):
+        content = self.sock.recv(65500)
+        if not content:
+            message = {}
+            self.connected = False
+        else:
+            try:
+                message = json.loads(content)
+            except ValueError:
+                message = {}
+
+        return message
+
+    @staticmethod
+    def to_message(typ, value='', params=None):
+        if params is None:
+            params = {}
+        return json.dumps({'type': typ, 'value': value, 'params': params})
+
+    def send(self, *args, **kwargs):
+        params = kwargs.get('params', {})
+        if '_ID' not in params:
+            params['_ID'] = '{}'.format(int(time.time() * 1000))
+            kwargs['params'] = params
+        message = self.to_message(*args, **kwargs)
+
+        logmsg('tx: ' + self.my_station + ': ' + args[1])  # console trace of messages sent
+
+        message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
+        self.sock.send((message + '\n').encode())   # newline suffix is required
+
+    def close(self):
+        self.sock.close()
 
 
 class Request:
@@ -142,19 +193,21 @@ class Request:
     def parse(self, request):
         request_parts = re.split(' +', request)
         self.caller = request_parts[0].replace(':', '')
-        if request_parts[2] in self.cmd_list:
-            self.processor = self.cmd_list[request_parts[2]]
-            self.cmd = request_parts[2]
-            logmsg('rx: ' + request)  # console trace of messages received
-            if debug:
-                logmsg(request_parts)
-            if len(request_parts) > 3:
-                # check Post ID and Date criteria
-                self.validate_criteria(request_parts[3])
-            else:
-                # there is no Post ID or Date criterion
-                self.rc = 0
-                self.op = 'gt'  # this will be greater than zero and so all posts
+        if len(request_parts) >= 2:
+            # check if the command is in the cmd_list and if it is retrieve the processor function name
+            if request_parts[1] in self.cmd_list:
+                self.cmd = request_parts[1]
+                self.processor = self.cmd_list[self.cmd]  # set the processor function name for this cmd
+                logmsg('rx: ' + request)  # console trace of messages received
+                if debug:
+                    logmsg(request_parts)
+                if len(request_parts) > 2:
+                    # check Post ID and Date criteria
+                    self.validate_criteria(request_parts[2])
+                else:
+                    # there is no Post ID or Date criterion
+                    self.rc = 0
+                    self.op = 'gt'  # this will be greater than zero and so all posts
 
         return self.rc
 
@@ -288,35 +341,8 @@ class MbServer:
     connected = False
     my_station = ''
 
-    def __init__(self):
-        logmsg('Connecting to JS8Call at ' + ':'.join(map(str, server)))
-        self.sock = socket(AF_INET, SOCK_STREAM)
-        try:
-            self.sock.connect(server)
-        except ConnectionRefusedError:
-            logmsg('Connection to JS8Call has been refused.')
-            print('Check that:')
-            print('* JS8Call is running')
-            print('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
-            print('* The API server port number in JS8Call matches the setting in this script - default is 2442')
-            print('* There are no firewall rules preventing the connection')
-            exit(1)
-        self.connected = True
-        logmsg('Connected to JS8Call')
-
-    def send(self, *args, **kwargs):
-        params = kwargs.get('params', {})
-        if '_ID' not in params:
-            params['_ID'] = '{}'.format(int(time.time() * 1000))
-            kwargs['params'] = params
-        message = to_message(*args, **kwargs)
-
-        logmsg('tx: ' + self.my_station + ': ' + args[1])  # console trace of messages sent
-
-        message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
-        self.sock.send((message + '\n').encode())   # newline suffix is required
-
-    def process(self, message):
+    @staticmethod
+    def process(js8call_api: Js8CallApi, message):
         typ = message.get('type', '')
         value = message.get('value', '')
 
@@ -326,7 +352,7 @@ class MbServer:
         elif typ == 'STATION.CALLSIGN':
             if debug:
                 logmsg('api rsp: ' + value)
-            self.my_station = value
+            js8call_api.set_my_station(value)
             pass
 
         elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us
@@ -338,54 +364,47 @@ class MbServer:
                 elif request.rc == 0:
                     procs = CmdProcessors()
                     mb_message = getattr(CmdProcessors, request.processor)(procs, request)
-                    self.send('TX.SEND_MESSAGE', mb_message)
+                    js8call_api.send('TX.SEND_MESSAGE', mb_message)
 
                 else:
                     mb_message = '%s %s %s' % (request.caller, request.cmd, request.msg)
-                    self.send('TX.SEND_MESSAGE', mb_message)
+                    js8call_api.send('TX.SEND_MESSAGE', mb_message)
 
     def run_server(self):
+
+        js8call_api = Js8CallApi()
+        js8call_api.connect()
+
         # this debug code block gets your station call sign and so avoids hard coding it into the debug messages
         if debug:
-            message = '{"type": "STATION.GET_CALLSIGN"}'
-            self.sock.send((message + '\n').encode())  # remember to send the newline at the end :)
-            logmsg('api call: ' + message)
-            if self.connected:
-                content = self.sock.recv(65500)
-                if content:
-                    try:
-                        message = json.loads(content)
-                    except ValueError:
-                        message = {}
-
-                    if message:
-                        self.process(message)
+            js8call_api.send('STATION.GET_CALLSIGN', '')
+            logmsg('api call: STATION.GET_CALLSIGN')
+            if js8call_api.connected:
+                message = js8call_api.listen()
+                if message:
+                    self.process(js8call_api, message)
+                else:
+                    logmsg('Unable to get My Callsign.')
+                    logmsg('Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
 
         # this debug code block processes simulated incoming commands
         if debug:
             debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}' % (self.my_station, debug_request)
             message = json.loads(debug_json)
-            self.process(message)
+            self.process(js8call_api, message)
             exit(0)
 
         try:
-            while self.connected:
-                content = self.sock.recv(65500)
-                if not content:
-                    break
-
-                try:
-                    message = json.loads(content)
-                except ValueError:
-                    message = {}
+            while js8call_api.connected:
+                message = js8call_api.listen()
 
                 if not message:
                     continue
 
-                self.process(message)
+                self.process(js8call_api, message)
 
         finally:
-            self.sock.close()
+            js8call_api.close()
 
     def close(self):
         self.connected = False
