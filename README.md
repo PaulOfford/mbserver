@@ -1,7 +1,7 @@
 # Microblog Server (mb_server.py)
 In a video published in January 2023, Julian (OH8STN) shared an idea he had regarding the use of data mode radio to share information in the same way as you might share using social media.  Julian has a particular interest in emergency comms and his idea is to provide a microblogging facility that's decentralised and does not require the Internet.
 
-The code here is a very simple (maybe simplistic) server.  mb_server supports two request types; LST to list the microblog posts available, and GET to retrieve a post.  The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API, accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and TCP port 2442.
+The code here is a very simple (maybe simplistic) server.  mb_server supports two request types; LST to list the microblog posts available, EXT to list the posts with the date of each in the listing and GET to retrieve a post.  The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API, accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and TCP port 2442.
 
 I have included brief details of the JS8Call command verbs and response types below.
 
