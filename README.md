@@ -77,6 +77,8 @@ You don't need to stop the server to add a new post to the posts directory; the 
 
 **Important:** The Outgoing Message area in the server JS8Call **must not be** in the DIRECTED MESSAGE mode.  If it is, all messages, including @MB announcements, will be prefixed with the callsign of whichever station you have selected. 
 
+~Draft text (subject to confirmation):~ If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  I believe this timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  Obviously, this could be a limiting factor in locations where unattended operation is permissible.
+
 ## Before you get started
 Before you try this code, there are three videos you are going to want to watch:
 * Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534

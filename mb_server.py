@@ -38,12 +38,19 @@ announce = True
 mb_announcement_timer = 300
 languages = 'EN-GB'
 
+# current_log_level = 0  # no logging
+current_log_level = 1  # normal logging
+# current_log_level = 2  # verbose logging
+# current_log_level = 3  # debug level logging
+# current_log_level = 4  # verbose debug level logging
+
 posts_dir = 'C:\\Development\\microblog\\posts\\'  # location of the microblog posts
 lst_limit = 5
 replace_nl = False  # if True, \n characters in a post will be replaced with a space character
+mb_revision = '5'
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
-debug = True  # set to True to tests with simulated messages set in debug_json
+debug = False  # set to True to tests with simulated messages set in debug_json
 debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.L'
 # debug_request = 'MB.E'
@@ -63,10 +70,11 @@ debug_request = 'NOT AN MB REQUEST'
 #######################################################################################################
 
 
-def logmsg(msg_text):
-    now = datetime.now(timezone.utc)
-    date_time = now.strftime("%Y-%m-%d %H:%M:%SZ -")
-    print(date_time, msg_text)
+def logmsg(log_level, msg_text):
+    if log_level <= current_log_level:
+        now = datetime.now(timezone.utc)
+        date_time = now.strftime("%Y-%m-%d %H:%M:%SZ -")
+        print(date_time, msg_text)
 
 
 class Js8CallApi:
@@ -79,20 +87,21 @@ class Js8CallApi:
         self.sock = socket(AF_INET, SOCK_STREAM)
 
     def connect(self):
-        logmsg('Connecting to JS8Call at ' + ':'.join(map(str, server)))
+        logmsg(1, 'info: Connecting to JS8Call at ' + ':'.join(map(str, server)))
         try:
             api = self.sock.connect(server)
             self.connected = True
-            logmsg('Connected to JS8Call')
+            logmsg(1, 'info: Connected to JS8Call')
             return api
 
         except ConnectionRefusedError:
-            logmsg('Connection to JS8Call has been refused.')
-            logmsg('Check that:')
-            logmsg('* JS8Call is running')
-            logmsg('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
-            logmsg('* The API server port number in JS8Call matches the setting in this script - default is 2442')
-            logmsg('* There are no firewall rules preventing the connection')
+            logmsg(1, 'err: Connection to JS8Call has been refused.')
+            logmsg(1, 'info: Check that:')
+            logmsg(1, 'info: * JS8Call is running')
+            logmsg(1, 'info: * JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
+            logmsg(1, 'info: * The API server port number in JS8Call matches the setting in this script'
+                      ' - default is 2442')
+            logmsg(1, 'info: * There are no firewall rules preventing the connection')
             exit(1)
 
     def set_my_grid(self, grid):
@@ -110,6 +119,7 @@ class Js8CallApi:
         ready = select.select([self.sock], [], [], 10)
         if ready[0]:
             content = self.sock.recv(65500)
+            logmsg(4, 'recv: ' + str(content))
         else:
             content = 'Check if announcement needed'
 
@@ -138,12 +148,20 @@ class Js8CallApi:
         message = self.to_message(*args, **kwargs)
 
         if args[1]:  # if no args must be an api call that doesn't send a message
-            logmsg('tx: ' + self.my_station + ': ' + args[1])  # console trace of messages sent
+            # under normal circumstances, we don't want to fill the log with post content
+            # only log the message content if running at log level 2 or above
+            if current_log_level >= 2:
+                log_line = args[1]
+            else:
+                temp = args[1].split('\n', 1)
+                log_line = temp[0]
+            logmsg(current_log_level, 'omsg: ' + self.my_station + ': ' + log_line)  # console trace of messages sent
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
+        logmsg(2, 'send: ' + message)
 
         if args[1] and debug:
-            logmsg('MB message not sent as we are in debug mode')
+            logmsg(3, 'info: MB message not sent as we are in debug mode')
             # this avoids hamlib errors in JS8Call if the radio isn't connected
         else:
             self.sock.send((message + '\n').encode())   # newline suffix is required
@@ -211,6 +229,7 @@ class Request:
         return self.rc
 
     def parse(self, request):
+        request = request.replace('> ', '>')  # allows for a space between the gt symbol and the post id or date
         request_parts = re.split(' +', request)
         self.caller = request_parts[0].replace(':', '')
         if len(request_parts) >= 2:
@@ -218,9 +237,9 @@ class Request:
             if request_parts[2] in self.cmd_list:
                 self.cmd = request_parts[2]
                 self.processor = self.cmd_list[self.cmd]  # set the processor function name for this cmd
-                logmsg('rx: ' + request)  # console trace of messages received
+                logmsg(1, 'imsg: ' + request)  # console trace of messages received
                 if debug:
-                    logmsg(request_parts)
+                    logmsg(1, request_parts)
                 if len(request_parts) > 3:
                     # check Post ID and Date criteria
                     self.validate_criteria(request_parts[3])
@@ -298,13 +317,17 @@ class CmdProcessors:
 
     def process_mb_ext(self, request):
         success = '+'
+        log_modifier = ''
+
+        if request.op == 'gt':
+            log_modifier = '>'
 
         if request.post_id > 0:
             blog_list = self.mb_lst_by_id(request, include_date=True)
-            target = str(request.post_id)
+            target = log_modifier + str(request.post_id)
         else:
             blog_list = self.mb_lst_by_date(request, include_date=True)
-            target = request.date
+            target = log_modifier + request.date
 
         header = '{caller} {success}{cmd} {target}\n'.format(
             caller=request.caller,
@@ -317,13 +340,17 @@ class CmdProcessors:
 
     def process_mb_lst(self, request):
         success = '+'
+        log_modifier = ''
+
+        if request.op == 'gt':
+            log_modifier = '>'
 
         if request.post_id > 0:
             blog_list = self.mb_lst_by_id(request, include_date=False)
-            target = str(request.post_id)
+            target = log_modifier + str(request.post_id)
         else:
             blog_list = self.mb_lst_by_date(request, include_date=False)
-            target = request.date
+            target = log_modifier + request.date
 
         header = '{caller} {success}{cmd} {target}\n'.format(
             caller=request.caller,
@@ -429,13 +456,13 @@ class MbServer:
 
         elif typ == 'STATION.GRID':
             if debug:
-                logmsg('api rsp: ' + value)
+                logmsg(1, 'resp: ' + value)
             js8call_api.set_my_grid(value)
             pass
 
         elif typ == 'STATION.CALLSIGN':
             if debug:
-                logmsg('api rsp: ' + value)
+                logmsg(1, 'resp: ' + value)
             js8call_api.set_my_station(value)
             pass
 
@@ -468,25 +495,25 @@ class MbServer:
         js8call_api.connect()
 
         js8call_api.send('STATION.GET_GRID', '')
-        logmsg('api call: STATION.GET_GRID')
+        logmsg(2, 'call: STATION.GET_GRID')
         if js8call_api.connected:
             message = js8call_api.listen()
             if message:
                 self.process(js8call_api, message)
             else:
-                logmsg('Unable to get My Grid.')
-                logmsg('Check in File -> Settings -> General -> '
+                logmsg(1, 'Unable to get My Grid.')
+                logmsg(1, 'Check in File -> Settings -> General -> '
                        'Station -> Station Details -> My Maidenhead Grid Locator')
 
             js8call_api.send('STATION.GET_CALLSIGN', '')
-            logmsg('api call: STATION.GET_CALLSIGN')
+            logmsg(2, 'call: STATION.GET_CALLSIGN')
             if js8call_api.connected:
                 message = js8call_api.listen()
                 if message:
                     self.process(js8call_api, message)
                 else:
-                    logmsg('Unable to get My Callsign.')
-                    logmsg('Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
+                    logmsg(1, 'Unable to get My Callsign.')
+                    logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
 
         mb_announcement = MbAnnouncement()
 
@@ -523,4 +550,7 @@ def main():
 
 
 if __name__ == '__main__':
+    if debug and current_log_level < 3:
+        current_log_level = 3
+    logmsg(1, 'info: Microblog Server revision ' + mb_revision)
     main()
