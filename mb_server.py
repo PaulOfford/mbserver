@@ -5,16 +5,8 @@
 # suggests.  This program should run on the computer of the amateur radio operator serving the microblogs.
 # See https://youtu.be/Nxg5_hiKlqc for an explanation.
 
-# This "server" supports the following requests:
-#  * MB.L - list all posts available
-#  * MB.L >n - list all posts with an id greater than n
-#  * MB.L yyyy-mm-dd - list all posts dated yyyy-mm-dd
-#  * MB.L >yyyy-mm-dd - list all posts created after yyyy-mm-dd
-#  * MB.E - as per L (list) command but each list entry includes the date of the post
-#  * MB.E >n - as per L (list) command but each list entry includes the date of the post
-#  * MB.E yyyy-mm-dd - as per L (list) command but each list entry includes the date of the post
-#  * MB.E >yyyy-mm-dd - as per L (list) command but each list entry includes the date of the post
-#  * MB.G n - get the post with the id n
+# Documentation can is available at https://github.com/PaulOfford/mbserver and in the README.md file
+# accompanying this file.
 
 # USE OF THIS PROGRAM
 # This is proof of concept program code and is freely available for experimentation.  You can change and
@@ -30,6 +22,9 @@ import re
 import json
 import time
 import glob
+import select
+
+# Configuration Parameters ############################################################################
 
 # make sure you open port 2442 prior to opening JS8 application
 # ubuntu command: sudo ufw allow 2442
@@ -38,6 +33,10 @@ import glob
 # Accept TCP Requests
 
 server = ('127.0.0.1', 2442)
+capabilities = 'LEG'
+announce = True
+mb_announcement_timer = 300
+languages = 'EN-GB'
 
 posts_dir = 'C:\\Development\\microblog\\posts\\'  # location of the microblog posts
 lst_limit = 5
@@ -45,10 +44,10 @@ replace_nl = False  # if True, \n characters in a post will be replaced with a s
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
 debug = False  # set to True to tests with simulated messages set in debug_json
-debug_request = 'NOT AN MB REQUEST'
+# debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.L'
 # debug_request = 'MB.E'
-# debug_request = 'MB.L >22'
+debug_request = 'MB.L >22'
 # debug_request = 'MB.E >22'
 # debug_request = 'MB.L > 22'
 # debug_request = 'MB.L 2023-01-13'
@@ -61,6 +60,8 @@ debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.G 9999'
 # debug_request = 'MB.G 2023-01-13'
 
+#######################################################################################################
+
 
 def logmsg(msg_text):
     now = datetime.now(timezone.utc)
@@ -72,6 +73,7 @@ class Js8CallApi:
 
     connected = False
     my_station = ''
+    my_grid = ''
 
     def __init__(self):
         self.sock = socket(AF_INET, SOCK_STREAM)
@@ -93,12 +95,24 @@ class Js8CallApi:
             logmsg('* There are no firewall rules preventing the connection')
             exit(1)
 
+    def set_my_grid(self, grid):
+        self.my_grid = grid
+        return
+
     def set_my_station(self, station_id):
         self.my_station = station_id
         return
 
     def listen(self):
-        content = self.sock.recv(65500)
+        # the following block of code provides a socket recv with a 10-second timeout
+        # we need this so that we call the @MB announcement code periodically
+        self.sock.setblocking(0)
+        ready = select.select([self.sock], [], [], 10)
+        if ready[0]:
+            content = self.sock.recv(65500)
+        else:
+            content = 'Check if announcement needed'
+
         if not content:
             message = {}
             self.connected = False
@@ -123,10 +137,16 @@ class Js8CallApi:
             kwargs['params'] = params
         message = self.to_message(*args, **kwargs)
 
-        logmsg('tx: ' + self.my_station + ': ' + args[1])  # console trace of messages sent
+        if args[1]:  # if no args must be an api call that doesn't send a message
+            logmsg('tx: ' + self.my_station + ': ' + args[1])  # console trace of messages sent
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
-        self.sock.send((message + '\n').encode())   # newline suffix is required
+
+        if args[1] and debug:
+            logmsg('MB message not sent as we are in debug mode')
+            # this avoids hamlib errors in JS8Call if the radio isn't connected
+        else:
+            self.sock.send((message + '\n').encode())   # newline suffix is required
 
     def close(self):
         self.sock.close()
@@ -195,15 +215,15 @@ class Request:
         self.caller = request_parts[0].replace(':', '')
         if len(request_parts) >= 2:
             # check if the command is in the cmd_list and if it is retrieve the processor function name
-            if request_parts[1] in self.cmd_list:
-                self.cmd = request_parts[1]
+            if request_parts[2] in self.cmd_list:
+                self.cmd = request_parts[2]
                 self.processor = self.cmd_list[self.cmd]  # set the processor function name for this cmd
                 logmsg('rx: ' + request)  # console trace of messages received
                 if debug:
                     logmsg(request_parts)
                 if len(request_parts) > 2:
                     # check Post ID and Date criteria
-                    self.validate_criteria(request_parts[2])
+                    self.validate_criteria(request_parts[3])
                 else:
                     # there is no Post ID or Date criterion
                     self.rc = 0
@@ -339,15 +359,40 @@ class MbAnnouncement:
 
     latest_post_id = 0
     latest_post_date = '2000-01-01'
+    next_announcement = 0
 
-    def latest_post_meta:
-    pass
+    def latest_post_meta(self):
+        file_list = sorted(glob.glob(posts_dir + '*.txt'))
+        latest_listing = file_list[len(file_list) - 1]
+        latest_post_values = latest_listing.split(' ', 4)
+        string_post_id = latest_post_values[0].replace(posts_dir, '')
+        self.latest_post_id = int(string_post_id)
+        self.latest_post_date = latest_post_values[2]
+        return
+
+    def send_mb_announcement(self, js8call_api):
+        # get the current epoch
+        epoch = time.time()
+        if epoch > self.next_announcement:
+            self.latest_post_meta()  # update with the latest post info
+            message = '@MB {mgl} {capable} {pid} {pdate} {langs}'.format(
+                                                                  mgl=js8call_api.my_grid,
+                                                                  capable=capabilities,
+                                                                  pid=self.latest_post_id,
+                                                                  pdate=self.latest_post_date,
+                                                                  langs=languages
+                                                                )
+            js8call_api.send('TX.SEND_MESSAGE', message)
+            # update the next announcement epoch
+            self.next_announcement = epoch + mb_announcement_timer
+
+        return
+
 
 class MbServer:
 
     first = True
     connected = False
-    my_station = ''
 
     @staticmethod
     def process(js8call_api: Js8CallApi, message):
@@ -356,6 +401,12 @@ class MbServer:
 
         if not typ:
             return
+
+        elif typ == 'STATION.GRID':
+            if debug:
+                logmsg('api rsp: ' + value)
+            js8call_api.set_my_grid(value)
+            pass
 
         elif typ == 'STATION.CALLSIGN':
             if debug:
@@ -383,8 +434,17 @@ class MbServer:
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
-        # this debug code block gets your station call sign and so avoids hard coding it into the debug messages
-        if debug:
+        js8call_api.send('STATION.GET_GRID', '')
+        logmsg('api call: STATION.GET_GRID')
+        if js8call_api.connected:
+            message = js8call_api.listen()
+            if message:
+                self.process(js8call_api, message)
+            else:
+                logmsg('Unable to get My Grid.')
+                logmsg('Check in File -> Settings -> General -> '
+                       'Station -> Station Details -> My Maidenhead Grid Locator')
+
             js8call_api.send('STATION.GET_CALLSIGN', '')
             logmsg('api call: STATION.GET_CALLSIGN')
             if js8call_api.connected:
@@ -395,27 +455,32 @@ class MbServer:
                     logmsg('Unable to get My Callsign.')
                     logmsg('Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
 
+        mb_announcement = MbAnnouncement()
+
         # this debug code block processes simulated incoming commands
-        if debug:
-            debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}' % (self.my_station, debug_request)
-            message = json.loads(debug_json)
-            self.process(js8call_api, message)
-            exit(0)
 
         try:
             while js8call_api.connected:
-                message = js8call_api.listen()
+                if announce:
+                    mb_announcement.send_mb_announcement(js8call_api)
+
+                if debug:
+                    # simulate a received message
+                    debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}' % (js8call_api.my_station, debug_request)
+                    message = json.loads(debug_json)
+                else:
+                    message = js8call_api.listen()
 
                 if not message:
                     continue
 
                 self.process(js8call_api, message)
 
+                if debug:
+                    break  # we only run one cycle when debugging
+
         finally:
             js8call_api.close()
-
-    def close(self):
-        self.connected = False
 
 
 def main():

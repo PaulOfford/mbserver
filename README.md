@@ -5,6 +5,8 @@ The code here is a very simple (maybe simplistic) server.  mb_server supports tw
 
 I have included brief details of the JS8Call command verbs and response types below.
 
+There's an important note about the state of the Outgoing Messages area in the section Running the Server - please read this.
+
 ## Microblog Commands
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
@@ -22,7 +24,32 @@ In the initial version of this code, MB.LST produced a listing that included the
 
 mb_server now supports shortened versions of the commands; M.L, M.E and M.G are equivalent to M.LST, M.EXT and M.GET respectively.
 
-The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with MB.LST or MB.GET.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intential to allow for the widest range of normal JS8Call messages.
+The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with MB.LST or MB.GET.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intentional to allow for the widest range of normal JS8Call messages.
+
+## MB Server Announcement
+The server can send announcement to the @MB call group.  An announcement contains:
+
+* The grid location of the server (as set in JS8Call)
+* A capabilities field that lists the supported operations
+  * L - Listing of posts
+  * E - Extended listing of posts
+  * G - Get a post
+  * U - Upload a post (for future use)
+* The ID of the latest post
+* The data of the latest post
+* A space-separated list of languages used as per RFC5646 Language-Region
+  * This is an optional field
+
+An example is - @MB JO01EV LEG 29 2023-01-27 EN-GB
+
+The @MB announcement mechanism is controlled by three configuration parameters you'll find near the top of the script file:
+
+* announce - switches the mechanism on and off, default is True which means on
+* mb_announcement_timer - sets the delay between announcements, default is 300 seconds
+* languages - sets the languages listed in th announcement, default is EN-GB
+  * Set this to a NULL string if you don't want to send announcements, i.e. delete the characters between the single quotation marks
+
+For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.  To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box and click OK.
 
 ## Microblog Post File
 A microblog post can contain any text content.  All text will be encoded as UTF8 and lower case letters will be shifted to upper case on transmission.
@@ -44,6 +71,11 @@ Although we show four digits above for the reference (nnnn), the server supports
 * Run the mb_server.py script
 
 Your station is now ready to accept calls for microblog posts.
+
+## Running the server
+You don't need to stop the server to add a new post to the posts directory; the server will check the list of posts on each request and update the latest post information in the next @MB announcement.
+
+**Important:** The Outgoing Message area in the server JS8Call **must not be** in the DIRECTED MESSAGE mode.  If it is, all messages, including @MB announcements, will be prefixed with the callsign of whichever station you have selected. 
 
 ## Before you get started
 Before you try this code, there are three videos you are going to want to watch:
