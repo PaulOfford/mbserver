@@ -43,22 +43,22 @@ lst_limit = 5
 replace_nl = False  # if True, \n characters in a post will be replaced with a space character
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
-debug = False  # set to True to tests with simulated messages set in debug_json
-# debug_request = 'NOT AN MB REQUEST'
+debug = True  # set to True to tests with simulated messages set in debug_json
+debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.L'
 # debug_request = 'MB.E'
-debug_request = 'MB.L >22'
-# debug_request = 'MB.E >22'
-# debug_request = 'MB.L > 22'
-# debug_request = 'MB.L 2023-01-13'
-# debug_request = 'MB.E 2023-01-13'
-# debug_request = 'MB.E FRED'
-# debug_request = 'MB.L >2023-01-06'
-# debug_request = 'MB.E >2023-01-06'
-# debug_request = 'MB.L > 2023-01-06'
-# debug_request = 'MB.G 24'
-# debug_request = 'MB.G 9999'
-# debug_request = 'MB.G 2023-01-13'
+# debug_request = 'M.L >22'
+# debug_request = 'M.E >22'
+# debug_request = 'M.L > 22'
+# debug_request = 'M.L 2023-01-13'
+# debug_request = 'M.E 2023-01-13'
+# debug_request = 'M.E FRED'
+# debug_request = 'M.L >2023-01-06'
+# debug_request = 'M.E >2023-01-06'
+# debug_request = 'M.L > 2023-01-06'
+# debug_request = 'M.G 24'
+# debug_request = 'M.G 9999'
+# debug_request = 'M.G 2023-01-13'
 
 #######################################################################################################
 
@@ -106,7 +106,7 @@ class Js8CallApi:
     def listen(self):
         # the following block of code provides a socket recv with a 10-second timeout
         # we need this so that we call the @MB announcement code periodically
-        self.sock.setblocking(0)
+        self.sock.setblocking(False)
         ready = select.select([self.sock], [], [], 10)
         if ready[0]:
             content = self.sock.recv(65500)
@@ -221,7 +221,7 @@ class Request:
                 logmsg('rx: ' + request)  # console trace of messages received
                 if debug:
                     logmsg(request_parts)
-                if len(request_parts) > 2:
+                if len(request_parts) > 3:
                     # check Post ID and Date criteria
                     self.validate_criteria(request_parts[3])
                 else:
@@ -297,21 +297,41 @@ class CmdProcessors:
             return 'NO POSTS FOUND' + '\n'
 
     def process_mb_ext(self, request):
-        header = '%s +%s\n' % (request.caller, request.cmd)
+        success = '+'
 
         if request.post_id > 0:
             blog_list = self.mb_lst_by_id(request, include_date=True)
+            target = str(request.post_id)
         else:
             blog_list = self.mb_lst_by_date(request, include_date=True)
+            target = request.date
+
+        header = '{caller} {success}{cmd} {target}\n'.format(
+            caller=request.caller,
+            success=success,
+            cmd=request.cmd,
+            target=target
+        )
+
         return header + blog_list
 
     def process_mb_lst(self, request):
-        header = '%s +%s\n' % (request.caller, request.cmd)
+        success = '+'
 
         if request.post_id > 0:
             blog_list = self.mb_lst_by_id(request, include_date=False)
+            target = str(request.post_id)
         else:
             blog_list = self.mb_lst_by_date(request, include_date=False)
+            target = request.date
+
+        header = '{caller} {success}{cmd} {target}\n'.format(
+            caller=request.caller,
+            success=success,
+            cmd=request.cmd,
+            target=target
+        )
+
         return header + blog_list
 
     @staticmethod
@@ -321,12 +341,11 @@ class CmdProcessors:
         return post
 
     def process_mb_get(self, request):
-        header = '%s +%s' % (request.caller, request.cmd)
-
         filename = ''
         mb_message = ''
+        success = '-'  # assume failure
+
         if request.post_id > 0:
-            header += ' ' + str(request.post_id)
             found_post = False
             file_list = sorted(glob.glob(posts_dir + '*' + str(request.post_id) + '*.txt'))
             for filename in file_list:
@@ -337,15 +356,23 @@ class CmdProcessors:
                     found_post = True
                     break
             if found_post:
-                mb_message += self.getmbpost(filename)
-                header += '\n'
+                mb_message += '\n' + self.getmbpost(filename)
+                success = '+'  # change success to good
             else:
-                header += ' '
                 mb_message = 'NOT FOUND'
 
+            target = str(request.post_id)
+
         else:
-            header += ' '
             mb_message = 'BY DATE UNSUPPORTED'
+            target = request.date
+
+        header = '{caller} {success}{cmd} {target} '.format(
+            caller=request.caller,
+            success=success,
+            cmd=request.cmd,
+            target=target
+        )
 
         mb_message = mb_message.replace('\r\n', '\n')
 
@@ -376,12 +403,12 @@ class MbAnnouncement:
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
             message = '@MB {mgl} {capable} {pid} {pdate} {langs}'.format(
-                                                                  mgl=js8call_api.my_grid,
-                                                                  capable=capabilities,
-                                                                  pid=self.latest_post_id,
-                                                                  pdate=self.latest_post_date,
-                                                                  langs=languages
-                                                                )
+                mgl=js8call_api.my_grid,
+                capable=capabilities,
+                pid=self.latest_post_id,
+                pdate=self.latest_post_date,
+                langs=languages
+            )
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
             self.next_announcement = epoch + mb_announcement_timer
@@ -391,11 +418,9 @@ class MbAnnouncement:
 
 class MbServer:
 
-    first = True
-    connected = False
-
     @staticmethod
     def process(js8call_api: Js8CallApi, message):
+
         typ = message.get('type', '')
         value = message.get('value', '')
 
@@ -414,11 +439,11 @@ class MbServer:
             js8call_api.set_my_station(value)
             pass
 
-        elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us
+        elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
             if value:
                 request = Request()
                 if request.parse(value) < 0:
-                    return  # the received string isn't for us
+                    pass  # the received string isn't for us - do nothing
 
                 elif request.rc == 0:
                     procs = CmdProcessors()
@@ -426,8 +451,16 @@ class MbServer:
                     js8call_api.send('TX.SEND_MESSAGE', mb_message)
 
                 else:
-                    mb_message = '%s %s %s' % (request.caller, request.cmd, request.msg)
+                    # must be an error
+                    mb_message = '{caller} {success}{cmd} {error_msg}'.format(
+                        caller=request.caller,
+                        success='-',
+                        cmd=request.cmd,
+                        error_msg=request.msg
+                    )
                     js8call_api.send('TX.SEND_MESSAGE', mb_message)
+
+                return request.rc
 
     def run_server(self):
 
@@ -466,7 +499,8 @@ class MbServer:
 
                 if debug:
                     # simulate a received message
-                    debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}' % (js8call_api.my_station, debug_request)
+                    debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}'\
+                                 % (js8call_api.my_station, debug_request)
                     message = json.loads(debug_json)
                 else:
                     message = js8call_api.listen()
