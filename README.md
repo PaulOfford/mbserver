@@ -7,24 +7,27 @@ I have included brief details of the JS8Call command verbs and response types be
 
 There's an important note about the state of the Outgoing Messages area in the section Running the Server - please read this.
 
+## Before you get started
+Before you try this code, there are three videos you are going to want to watch:
+* Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534
+* JS8Call Microblogging Overview - https://youtu.be/uUsUmD2c2SY
+
 ## Microblog Commands
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
-* MB.LST - list all posts available - the output will be limited to a list of 5
-* MB.LST >n - list all posts with an id greater than n
-* MB.LST yyyy-mm-dd - list all posts dated yyyy-mm-dd
-* MB.LST >yyyy-mm-dd - list all posts created after yyyy-mm-dd
-* MB.EXT - as per MB.LST but with list entries that include the date of the post
-* MB.EXT >n - as per MB.LST but with list entries that include the date of the post
-* MB.EXT yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
-* MB.EXT >yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
-* MB.GET n - get the post with the id n
+* M.L - list all posts available - the output will be limited to a list of 5
+* M.L >n - list all posts with an id greater than n
+* M.L yyyy-mm-dd - list all posts dated yyyy-mm-dd
+* M.L >yyyy-mm-dd - list all posts created after yyyy-mm-dd
+* M.E - as per MB.LST but with list entries that include the date of the post
+* M.E >n - as per MB.LST but with list entries that include the date of the post
+* M.E yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
+* M.E >yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
+* M.G n - get the post with the id n
 
-In the initial version of this code, MB.LST produced a listing that included the post date in each line of the listing.  MB.LST now lists the post ID and the description.  This has been done to reduce the time taken to send the listing.  MB.EXT has been added to provide a listing with the post dates.
+Earlier versions of these commands are still supported; MB.LST, MB.L, MB.EXT, MB.E, MB.GET and MB.G.
 
-mb_server now supports shortened versions of the commands; M.L, M.E and M.G are equivalent to M.LST, M.EXT and M.GET respectively.
-
-The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with MB.LST or MB.GET.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intentional to allow for the widest range of normal JS8Call messages.
+The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with M.L, M.E or M.G.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intentional to allow for the widest range of normal JS8Call messages.
 
 ## MB Server Announcement
 The server can send announcement to the @MB call group.  An announcement contains:
@@ -40,13 +43,13 @@ The server can send announcement to the @MB call group.  An announcement contain
 * A space-separated list of languages used as per RFC5646 Language-Region
   * This is an optional field
 
-An example is - @MB JO01EV LEG 29 2023-01-27 EN-GB
+An example is - `@MB JO01EV LEG 29 2023-01-27 EN-GB`
 
 The @MB announcement mechanism is controlled by three configuration parameters you'll find near the top of the script file:
 
-* announce - switches the mechanism on and off, default is True which means on
-* mb_announcement_timer - sets the delay between announcements, default is 300 seconds
-* languages - sets the languages listed in th announcement, default is EN-GB
+* `announce` - switches the mechanism on and off, default is True which means on
+* `mb_announcement_timer` - sets the delay between announcements, default is 300 seconds
+* `languages` - sets the languages listed in th announcement, default is EN-GB
   * Set this to a NULL string if you don't want to send announcements, i.e. delete the characters between the single quotation marks
 
 For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.  To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box and click OK.
@@ -56,7 +59,7 @@ A microblog post can contain any text content.  All text will be encoded as UTF8
 
 The post file name must start with the blog ID and a date like this:
 
-nnnn - yyy-mm-dd - You chosen summary test
+`nnnn - yyy-mm-dd - Your chosen summary test`
 
 Although we show four digits above for the reference (nnnn), the server supports any number of digits up to a value of 2000000000.
 
@@ -77,15 +80,9 @@ You don't need to stop the server to add a new post to the posts directory; the 
 
 **Important:** The Outgoing Message area in the server JS8Call **must not be** in the DIRECTED MESSAGE mode.  If it is, all messages, including @MB announcements, will be prefixed with the callsign of whichever station you have selected. 
 
-~Draft text (subject to confirmation):~ If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  I believe this timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  Obviously, this could be a limiting factor in locations where unattended operation is permissible.
+**Draft text (subject to confirmation):** If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  I believe this timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  Obviously, this could be a limiting factor in locations where unattended operation is permissible.
 
-## Before you get started
-Before you try this code, there are three videos you are going to want to watch:
-* Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534
-* Micro Blogging with JS8Call - Proof of Concept - https://youtu.be/Nxg5_hiKlqc
-* Microblog Server Part - Update 1 - https://youtu.be/jAE7RQ-oo5A
-
-PS: My programming skills are self taught and so don't be surprised if my coding standard are poor :-)
+PS: My programming skills are self-taught and so don't be surprised if my coding standard are poor :-)
 
 # JS8Call API
 ## Introduction
@@ -93,18 +90,18 @@ JS8Call provides an API that allows programmatic control of the JS8Call program.
 
 Request, response ad notification messages all have the same format:
 
-{"type": "AS_BELOW", "value": "CAN_BE_NULL", "params": {AN_ARRAY_OF_TYPE-VALUE_PAIRS}}
+`{"type": "AS_BELOW", "value": "CAN_BE_NULL", "params": {AN_ARRAY_OF_TYPE-VALUE_PAIRS}}`
 
 A common params element is _ID, like this:
 
-"_ID": "1673961458978"
+`"_ID": "1673961458978"`
 
 The integer is of an Epoch timestamp value (as in this case), indicating the time of the request.
 
 An example is a request for the station callsign and the response is:
 
-{"type": "STATION.GET_CALLSIGN", "value": "", "params": {"_ID": "1673961458978"}}
-{"type": "STATION.CALLSIGN", "value": "M0PXO", "params": {"_ID": "1673961458978"}}
+`{"type": "STATION.GET_CALLSIGN", "value": "", "params": {"_ID": "1673961458978"}}`
+`{"type": "STATION.CALLSIGN", "value": "M0PXO", "params": {"_ID": "1673961458978"}}`
 
 Note how the _ID value in the response matches up to the request, allowing correlation of the two.
 
