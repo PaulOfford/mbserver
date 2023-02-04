@@ -396,7 +396,7 @@ class MbAnnouncement:
             )
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
-            self.next_announcement = epoch + mb_announcement_timer
+            self.next_announcement = epoch + (mb_announcement_timer * 60)
 
         return
 
