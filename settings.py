@@ -10,7 +10,6 @@ server = ('127.0.0.1', 2442)
 capabilities = 'LEG'
 announce = True
 mb_announcement_timer = 60  # in minutes, suggested values are 60, 30 and 15
-languages = 'EN-GB'
 
 # current_log_level = 0  # no logging
 current_log_level = 1  # normal logging

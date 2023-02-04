@@ -30,27 +30,14 @@ Earlier versions of these commands are still supported; MB.LST, MB.L, MB.EXT, MB
 The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with M.L, M.E or M.G.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intentional to allow for the widest range of normal JS8Call messages.
 
 ## MB Server Announcement
-The server can send announcement to the @MB call group.  An announcement contains:
+The server can send announcement to the @MB call group.  An announcement contains the ID of the latest post.
 
-* The grid location of the server (as set in JS8Call)
-* A capabilities field that lists the supported operations
-  * L - Listing of posts
-  * E - Extended listing of posts
-  * G - Get a post
-  * U - Upload a post (for future use)
-* The ID of the latest post
-* The data of the latest post
-* A space-separated list of languages used as per RFC5646 Language-Region
-  * This is an optional field
-
-An example is - `@MB JO01EV LEG 29 2023-01-27 EN-GB`
+An example is - `@MB 29`
 
 The @MB announcement mechanism is controlled by three configuration parameters in settings.py:
 
-* `announce` - switches the mechanism on and off, default is True which means on
-* `mb_announcement_timer` - sets the delay between announcements, default is 60 mins
-* `languages` - sets the languages listed in th announcement, default is EN-GB
-  * Set this to a NULL string if you don't want to send announcements, i.e. delete the characters between the single quotation marks
+* `announce` - switches the mechanism on and off; default is True which means on
+* `mb_announcement_timer` - sets the delay, in minutes, between announcements; default is 60 mins
 
 For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.  To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box and click OK.
 

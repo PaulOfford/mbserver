@@ -387,12 +387,8 @@ class MbAnnouncement:
         epoch = time.time()
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
-            message = '@MB {mgl} {capable} {pid} {pdate} {langs}'.format(
-                mgl=js8call_api.my_grid,
-                capable=capabilities,
-                pid=self.latest_post_id,
-                pdate=self.latest_post_date,
-                langs=languages
+            message = '@MB {pid}'.format(
+                pid=self.latest_post_id
             )
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
