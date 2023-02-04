@@ -45,7 +45,7 @@ The server can send announcement to the @MB call group.  An announcement contain
 
 An example is - `@MB JO01EV LEG 29 2023-01-27 EN-GB`
 
-The @MB announcement mechanism is controlled by three configuration parameters you'll find near the top of the script file:
+The @MB announcement mechanism is controlled by three configuration parameters in settings.py:
 
 * `announce` - switches the mechanism on and off, default is True which means on
 * `mb_announcement_timer` - sets the delay between announcements, default is 300 seconds
@@ -68,7 +68,7 @@ Although we show four digits above for the reference (nnnn), the server supports
 * Pull the repo or download the zip file from here
 * Create a posts directory on your PC
 * Move the sample posts downloaded into the posts directory
-* Change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
+* In settings.py, change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
 * In JS8Call go to File -> Settings -> Reporting
 * In the API section check Enable TCP Server API and Accept TCP Request
 * Run the mb_server.py script
