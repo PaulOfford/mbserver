@@ -25,7 +25,7 @@ import time
 import glob
 import select
 
-mb_revision = '5'
+mb_revision = '6'
 
 
 def logmsg(log_level, msg_text):
