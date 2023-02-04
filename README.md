@@ -48,7 +48,7 @@ An example is - `@MB JO01EV LEG 29 2023-01-27 EN-GB`
 The @MB announcement mechanism is controlled by three configuration parameters in settings.py:
 
 * `announce` - switches the mechanism on and off, default is True which means on
-* `mb_announcement_timer` - sets the delay between announcements, default is 300 seconds
+* `mb_announcement_timer` - sets the delay between announcements, default is 60 mins
 * `languages` - sets the languages listed in th announcement, default is EN-GB
   * Set this to a NULL string if you don't want to send announcements, i.e. delete the characters between the single quotation marks
 
