@@ -93,12 +93,14 @@ Although we show four digits above for the reference (nnnn), the server supports
 
 Your station is now ready to accept calls for microblog posts.
 
+If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  This timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  To run the server for prolonged periods you should diable this timer on the server machine.
+
+In JS8Call, go to File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: Click and hold the down arrow scroll icon until the value shows as Disabled.
+
 ## Running the server
 You don't need to stop the server to add a new post to the posts directory; the server will check the list of posts on each request and update the latest post information in the next @MB announcement.
 
 **Important:** The Outgoing Message area in the server JS8Call **must not be** in the DIRECTED MESSAGE mode.  If it is, all messages, including @MB announcements, will be prefixed with the callsign of whichever station you have selected. 
-
-**Draft text (subject to confirmation):** If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  I believe this timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  Obviously, this could be a limiting factor in locations where unattended operation is permissible.
 
 PS: My programming skills are self-taught and so don't be surprised if my coding standard are poor :-)
 
