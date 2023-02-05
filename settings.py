@@ -7,6 +7,7 @@
 # Accept TCP Requests
 
 server = ('127.0.0.1', 2442)
+msg_terminator = '♢'
 capabilities = 'LEG'
 announce = True
 mb_announcement_timer = 60  # in minutes, suggested values are 60, 30 and 15
@@ -22,13 +23,13 @@ lst_limit = 5
 replace_nl = False  # if True, \n characters in a post will be replaced with a space character
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
-debug = False  # set to True to tests with simulated messages set in debug_json
-debug_request = 'NOT AN MB REQUEST'
+debug = True  # set to True to tests with simulated messages set in debug_json
+# debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.L'
 # debug_request = 'MB.E'
 # debug_request = 'M.L >22'
 # debug_request = 'M.E >22'
-# debug_request = 'M.L > 22'
+debug_request = 'M.L > 22'
 # debug_request = 'M.L 2023-01-13'
 # debug_request = 'M.E 2023-01-13'
 # debug_request = 'M.E FRED'

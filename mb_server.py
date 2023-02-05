@@ -128,9 +128,122 @@ class Js8CallApi:
         self.sock.close()
 
 
-class Request:
+class ApiCmd:
     # the following is a list of valid commands and
-    # their corresponding command processors in the MbServer class
+    # their corresponding command processors in the CmdProcessors class
+    # the following list contains regex patterns used to check inbound API requests
+    # and the corresponding cmd processor
+    command_informat = [
+        {'exp': '^LE\\d+~', 'proc': 'process_mb_lst', 'op': 'eq', 'by': 'id'},
+        {'exp': '^LG\\d+~', 'proc': 'process_mb_lst', 'op': 'gt', 'by': 'id'},
+        {'exp': '^ME\\d{5}~|^ME\\d{2}[A-C]\\d{2}~', 'proc': 'process_mb_lst', 'op': 'eq', 'by': 'date'},
+        {'exp': '^MG\\d{5}~|^MG\\d{2}[A-C]\\d{2}~', 'proc': 'process_mb_lst', 'op': 'gt', 'by': 'date'},
+
+        {'exp': '^EE\\d+~', 'proc': 'process_mb_ext', 'op': 'eq', 'by': 'id'},
+        {'exp': '^EG\\d+~', 'proc': 'process_mb_ext', 'op': 'gt', 'by': 'id'},
+        {'exp': '^FE\\d{5}~|^FE\\d{2}[A-C]\\d{2}~', 'proc': 'process_mb_ext', 'op': 'eq', 'by': 'date'},
+        {'exp': '^FG\\d{5}~|^FG\\d{2}[A-C]\\d{2}~', 'proc': 'process_mb_ext', 'op': 'gt', 'by': 'date'},
+
+        {'exp': '^GE\\d+~', 'proc': 'process_mb_get', 'op': 'eq', 'by': 'id'},
+    ]
+
+    is_valid = False
+    cmd = None
+    exp = None
+    proc = None
+    op = None
+    by = None
+
+    def __init__(self, command: str):
+        for entry in self.command_informat:
+            # try to match the request
+            result = re.search(entry['exp'], command)
+            if result is None:
+                continue
+            else:
+                self.is_valid = True
+                self.cmd = command[0:2]
+                self.exp = entry['exp']
+                self.proc = entry['proc']
+                self.op = entry['op']
+                self.by = entry['by']
+                break
+
+
+class ApiRequest:
+    caller = ''
+    rc = -1  # default not a microblog command
+    msg = ''
+    cmd = ''
+    op = ''
+    post_id = 0
+    date = ''
+    processor = ''
+
+    @staticmethod
+    def is_api(request):
+        request = request.replace(msg_terminator, '')  # remove the terminator character
+        request_parts = re.split(' ', request)
+        if len(request_parts) >= 3:
+            api_cmd = ApiCmd(request_parts[2])
+            if api_cmd.is_valid:
+                return True
+            else:
+                return False
+
+    def extract_id(self, cmd_string):
+        id_string = cmd_string[2:].replace('~', '')
+        try:
+            self.post_id = int(id_string)
+            self.rc = 0
+            self.msg = 'OK'
+        except ValueError:
+            self.rc = 102
+            self.msg = 'PARAMETER NOT VALID INTEGER'
+        return self.post_id
+
+    def extract_date(self, cmd_string):
+        date_string = '20%s-0%s-%s' % (cmd_string[2:4], cmd_string[4:5], cmd_string[5:7])
+        date_string = date_string.replace('0A', '10')
+        date_string = date_string.replace('0B', '11')
+        date_string = date_string.replace('0C', '12')
+
+        try:
+            time.strptime(date_string, '%Y-%m-%d')
+            self.date = date_string
+            self.rc = 0
+            self.msg = 'OK'
+        except ValueError:
+            self.rc = 103
+            self.msg = 'PARAMETER NOT VALID DATE'
+        return date_string
+
+    def parse(self, request):
+        request = request.replace(msg_terminator, '')  # remove the terminator character
+
+        request_parts = re.split(' ', request)
+        self.caller = request_parts[0].replace(':', '')
+        if len(request_parts) >= 3:
+            api_cmd = ApiCmd(request_parts[2])
+            if not api_cmd.is_valid:
+                return -1
+
+            # now we've validated the command, and we have the informat, time to parse it
+            self.cmd = api_cmd.cmd
+            self.op = api_cmd.op
+            self.processor = api_cmd.proc
+
+            if api_cmd.by == 'id':
+                self.post_id = self.extract_id(request_parts[2])
+            elif api_cmd.by == 'date':
+                self.date = self.extract_date(request_parts[2])
+
+        return self.rc
+
+
+class CliRequest:
+    # the following is a list of valid commands and
+    # their corresponding command processors in the CmdProcessors class
     cmd_list = {
         'M.LST': 'process_mb_lst',
         'M.L': 'process_mb_lst',
@@ -186,6 +299,17 @@ class Request:
 
         return self.rc
 
+    def is_cli(self, request):
+        request = request.replace('> ', '>')  # allows for a space between the gt symbol and the post id or date
+        request_parts = re.split(' +', request)
+        self.caller = request_parts[0].replace(':', '')
+        if len(request_parts) >= 2:
+            # check if the command is in the cmd_list and if it is retrieve the processor function name
+            if request_parts[2] in self.cmd_list:
+                return True
+            else:
+                return False
+
     def parse(self, request):
         request = request.replace('> ', '>')  # allows for a space between the gt symbol and the post id or date
         request_parts = re.split(' +', request)
@@ -206,7 +330,7 @@ class Request:
                     self.rc = 0
                     self.op = 'gt'  # this will be greater than zero and so all posts
 
-        return self.rc
+        return self.rc  # we return -1 if this isn't a CLI command
 
 
 class CmdProcessors:
@@ -323,6 +447,7 @@ class CmdProcessors:
     def getmbpost(filename):
         f = open(filename)
         post = f.read()
+        f.close()
         return post
 
     def process_mb_get(self, request):
@@ -399,52 +524,43 @@ class MbAnnouncement:
 
 class MbServer:
 
-    @staticmethod
-    def process(js8call_api: Js8CallApi, message):
+    request = None
 
-        typ = message.get('type', '')
+    def process(self, message):
+        mb_message = None
+
         value = message.get('value', '')
 
-        if not typ:
-            return
-
-        elif typ == 'STATION.GRID':
-            if debug:
-                logmsg(1, 'resp: ' + value)
-            js8call_api.set_my_grid(value)
-            pass
-
-        elif typ == 'STATION.CALLSIGN':
-            if debug:
-                logmsg(1, 'resp: ' + value)
-            js8call_api.set_my_station(value)
-            pass
-
-        elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-            if value:
-                request = Request()
-                if request.parse(value) < 0:
-                    pass  # the received string isn't for us - do nothing
-
-                elif request.rc == 0:
-                    procs = CmdProcessors()
-                    mb_message = getattr(CmdProcessors, request.processor)(procs, request)
-                    js8call_api.send('TX.SEND_MESSAGE', mb_message)
-
+        if value:
+            self.request = CliRequest()
+            if self.request.is_cli(value):
+                pass
+            else:
+                self.request = ApiRequest()
+                if self.request.is_api(value):
+                    pass
                 else:
-                    # must be an error
-                    mb_message = '{caller} {success}{cmd} {error_msg}'.format(
-                        caller=request.caller,
-                        success='-',
-                        cmd=request.cmd,
-                        error_msg=request.msg
-                    )
-                    js8call_api.send('TX.SEND_MESSAGE', mb_message)
+                    return
 
-                return request.rc
+            if self.request.parse(value) < 0:
+                pass  # the received string isn't for us - do nothing
+
+            elif self.request.rc == 0:
+                procs = CmdProcessors()
+                mb_message = getattr(CmdProcessors, self.request.processor)(procs, self.request)
+
+            else:
+                # must be an error
+                mb_message = '{caller} {success}{cmd} {error_msg}'.format(
+                    caller=self.request.caller,
+                    success='-',
+                    cmd=self.request.cmd,
+                    error_msg=self.request.msg
+                )
+
+        return mb_message.upper()
 
     def run_server(self):
-
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
@@ -453,7 +569,7 @@ class MbServer:
         if js8call_api.connected:
             message = js8call_api.listen()
             if message:
-                self.process(js8call_api, message)
+                self.process(message)
             else:
                 logmsg(1, 'Unable to get My Grid.')
                 logmsg(1, 'Check in File -> Settings -> General -> '
@@ -464,7 +580,7 @@ class MbServer:
             if js8call_api.connected:
                 message = js8call_api.listen()
                 if message:
-                    self.process(js8call_api, message)
+                    self.process(message)
                 else:
                     logmsg(1, 'Unable to get My Callsign.')
                     logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
@@ -478,21 +594,30 @@ class MbServer:
                 if announce:
                     mb_announcement.send_mb_announcement(js8call_api)
 
-                if debug:
-                    # simulate a received message
-                    debug_json = '{"type":"RX.DIRECTED","value":"CALL3R: %s %s"}'\
-                                 % (js8call_api.my_station, debug_request)
-                    message = json.loads(debug_json)
-                else:
-                    message = js8call_api.listen()
+                message = js8call_api.listen()
 
                 if not message:
                     continue
 
-                self.process(js8call_api, message)
+                typ = message.get('type', '')
+                value = message.get('value', '')
 
-                if debug:
-                    break  # we only run one cycle when debugging
+                if not typ:
+                    return
+
+                elif typ == 'STATION.GRID':
+                    logmsg(3, 'resp: ' + value)
+                    js8call_api.set_my_grid(value)
+
+                elif typ == 'STATION.CALLSIGN':
+                    logmsg(3, 'resp: ' + value)
+                    js8call_api.set_my_station(value)
+
+                elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
+                    rsp_message = self.process(message)
+                    if rsp_message:
+                        logmsg(1, 'resp: ' + rsp_message)
+                        js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
         finally:
             js8call_api.close()
@@ -504,7 +629,5 @@ def main():
 
 
 if __name__ == '__main__':
-    if debug and current_log_level < 3:
-        current_log_level = 3
     logmsg(1, 'info: Microblog Server revision ' + mb_revision)
     main()

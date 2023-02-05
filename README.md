@@ -13,6 +13,17 @@ Before you try this code, there are three videos you are going to want to watch:
 * JS8Call Microblogging Overview - https://youtu.be/uUsUmD2c2SY
 
 ## Microblog Commands
+
+Commands can be in one of two formats:
+
+* Command Line Interface (CLI) - typically sent from the Outgoing Message Box of JS8Call on a client machine
+* Application Program Interface (API) - typically sent from an application running on the client machine and communicating using JS8
+
+The client SHOULD NOT switch between formats during a conversation.  Although this may work, there is no guarantee it will work in the future.
+
+The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't match the defined command formats.  This is an important point as **the requestor will not receive an error message if the command is incorrect**.  This is intentional to allow for the widest range of normal JS8Call messages.
+
+### Command Line Interface (CLI)
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
 * M.L - list all posts available - the output will be limited to a list of 5
@@ -27,7 +38,27 @@ An operator can use the standard JS8Call Outgoing Message Area to send the follo
 
 Earlier versions of these commands are still supported; MB.LST, MB.L, MB.EXT, MB.E, MB.GET and MB.G.
 
-The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't start with M.L, M.E or M.G.  This is an important point as **the requestor will not receive an error message if he/she/they mistype the command**.  This is intentional to allow for the widest range of normal JS8Call messages.
+### Application Program Interface (API)
+Command formats are as follows:
+
+* `LEn~` - return a list of posts with the post id n, i.e. just one line
+  * e.g. `LE405~`
+* `MEyymdd~` - return a list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
+  * e.g. `ME22C25~`
+* `LGn~` - return a list of all posts starting with an id greater than n
+  * e.g. `LG405~`
+* `MGyymdd~` - return a list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
+  * e.g. `MG22C25~`
+* `EEn~` - return an extended list of posts with the post id n, i.e. just one line
+  * e.g. `EE405~`
+* `FEyymdd~` - return an extended list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
+  * e.g. `FE22C25~`
+* `EGn~` - return an extended format list of all posts starting with an id greater than n; n can be 0 to 200000
+  * e.g. `EG405~`
+* `FGyymdd~` - return an extended format list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
+  * e.g. `FG22C25~`
+* `GEn~` - return the content of the post with the id n
+  * e.g. `GE412~`
 
 ## MB Server Announcement
 The server can send announcement to the @MB call group.  An announcement contains the ID of the latest post.
