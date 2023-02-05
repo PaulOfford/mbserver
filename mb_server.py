@@ -25,7 +25,7 @@ import time
 import glob
 import select
 
-mb_revision = '7'
+mb_revision = '8'
 
 
 def logmsg(log_level, msg_text):
@@ -183,6 +183,7 @@ class ApiRequest:
     @staticmethod
     def is_api(request):
         request = request.replace(msg_terminator, '')  # remove the terminator character
+        request = request.replace('  ', ' ')  # remove double spaces
         request_parts = re.split(' ', request)
         if len(request_parts) >= 3:
             api_cmd = ApiCmd(request_parts[2])
@@ -220,6 +221,7 @@ class ApiRequest:
 
     def parse(self, request):
         request = request.replace(msg_terminator, '')  # remove the terminator character
+        request = request.replace('  ', ' ')  # remove double spaces
 
         request_parts = re.split(' ', request)
         self.caller = request_parts[0].replace(':', '')

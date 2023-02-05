@@ -23,7 +23,7 @@ lst_limit = 5
 replace_nl = False  # if True, \n characters in a post will be replaced with a space character
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
-debug = True  # set to True to tests with simulated messages set in debug_json
+debug = False  # set to True to tests with simulated messages set in debug_json
 # debug_request = 'NOT AN MB REQUEST'
 # debug_request = 'MB.L'
 # debug_request = 'MB.E'
