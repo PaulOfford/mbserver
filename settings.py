@@ -24,20 +24,5 @@ replace_nl = False  # if True, \n characters in a post will be replaced with a s
 
 # when debugging this code, JS8Call must be running but a radio isn't needed
 debug = False  # set to True to tests with simulated messages set in debug_json
-# debug_request = 'NOT AN MB REQUEST'
-# debug_request = 'MB.L'
-# debug_request = 'MB.E'
-# debug_request = 'M.L >22'
-# debug_request = 'M.E >22'
-debug_request = 'M.L > 22'
-# debug_request = 'M.L 2023-01-13'
-# debug_request = 'M.E 2023-01-13'
-# debug_request = 'M.E FRED'
-# debug_request = 'M.L >2023-01-06'
-# debug_request = 'M.E >2023-01-06'
-# debug_request = 'M.L > 2023-01-06'
-# debug_request = 'M.G 24'
-# debug_request = 'M.G 9999'
-# debug_request = 'M.G 2023-01-13'
 
 #######################################################################################################
