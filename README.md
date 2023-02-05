@@ -61,7 +61,7 @@ Command formats are as follows:
   * e.g. `GE412~`
 
 ## MB Server Announcement
-The server can send announcement to the @MB call group.  An announcement contains the ID of the latest post.
+The server can send an announcement to the @MB call group.  An announcement contains the ID of the latest post.
 
 An example is - `@MB 29`
 
@@ -87,15 +87,15 @@ Although we show four digits above for the reference (nnnn), the server supports
 * Create a posts directory on your PC
 * Move the sample posts downloaded into the posts directory
 * In settings.py, change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
-* In JS8Call go to File -> Settings -> Reporting
+* In JS8Call go to *File -> Settings -> Reporting*
 * In the API section check Enable TCP Server API and Accept TCP Request
 * Run the mb_server.py script
 
 Your station is now ready to accept calls for microblog posts.
 
-If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  This timeout is controlled by File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  To run the server for prolonged periods you should diable this timer on the server machine.
+If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  This timeout is controlled by *File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after:* The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  To run the server for prolonged periods you should diable this timer on the server machine.
 
-In JS8Call, go to File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after: Click and hold the down arrow scroll icon until the value shows as Disabled.
+In JS8Call, go to *File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after:* Click and hold the down arrow scroll icon until the value shows as Disabled.
 
 ## Running the server
 You don't need to stop the server to add a new post to the posts directory; the server will check the list of posts on each request and update the latest post information in the next @MB announcement.
