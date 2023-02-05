@@ -32,7 +32,8 @@ def logmsg(log_level, msg_text):
     if log_level <= current_log_level:
         now = datetime.now(timezone.utc)
         date_time = now.strftime("%Y-%m-%d %H:%M:%SZ -")
-        print(date_time, msg_text)
+        # we need to eliminate the message terminator as it's not supported by print in UTF8 mode
+        print(date_time, msg_text.replace(msg_terminator, ''))
 
 
 class Js8CallApi:
@@ -182,7 +183,6 @@ class ApiRequest:
 
     @staticmethod
     def is_api(request):
-        request = request.replace(msg_terminator, '')  # remove the terminator character
         request = request.replace('  ', ' ')  # remove double spaces
         request_parts = re.split(' ', request)
         if len(request_parts) >= 3:
@@ -220,15 +220,15 @@ class ApiRequest:
         return date_string
 
     def parse(self, request):
-        request = request.replace(msg_terminator, '')  # remove the terminator character
-        request = request.replace('  ', ' ')  # remove double spaces
-
         request_parts = re.split(' ', request)
         self.caller = request_parts[0].replace(':', '')
         if len(request_parts) >= 3:
             api_cmd = ApiCmd(request_parts[2])
             if not api_cmd.is_valid:
                 return -1
+
+            logmsg(1, 'imsg: ' + request)  # console trace of messages received
+            logmsg(3, request_parts)
 
             # now we've validated the command, and we have the informat, time to parse it
             self.cmd = api_cmd.cmd
@@ -316,14 +316,13 @@ class CliRequest:
         request = request.replace('> ', '>')  # allows for a space between the gt symbol and the post id or date
         request_parts = re.split(' +', request)
         self.caller = request_parts[0].replace(':', '')
-        if len(request_parts) >= 2:
+        if len(request_parts) >= 3:
             # check if the command is in the cmd_list and if it is retrieve the processor function name
             if request_parts[2] in self.cmd_list:
                 self.cmd = request_parts[2]
                 self.processor = self.cmd_list[self.cmd]  # set the processor function name for this cmd
                 logmsg(1, 'imsg: ' + request)  # console trace of messages received
-                if debug:
-                    logmsg(1, request_parts)
+                logmsg(3, request_parts)
                 if len(request_parts) > 3:
                     # check Post ID and Date criteria
                     self.validate_criteria(request_parts[3])
@@ -429,7 +428,7 @@ class CmdProcessors:
         if request.op == 'gt':
             log_modifier = '>'
 
-        if request.post_id > 0:
+        if request.date == '':
             blog_list = self.mb_lst_by_id(request, include_date=False)
             target = log_modifier + str(request.post_id)
         else:
@@ -532,6 +531,11 @@ class MbServer:
         mb_message = None
 
         value = message.get('value', '')
+        # tidy up the message string
+        value = value.replace(' ' + msg_terminator, '')  # remove the message terminator
+        value = value.replace(msg_terminator, '')  # remove the message terminator
+        value = value.strip()
+        value = value.replace('  ', ' ')  # remove double spaces
 
         if value:
             self.request = CliRequest()
@@ -548,6 +552,7 @@ class MbServer:
                 pass  # the received string isn't for us - do nothing
 
             elif self.request.rc == 0:
+                # looks good - go for it
                 procs = CmdProcessors()
                 mb_message = getattr(CmdProcessors, self.request.processor)(procs, self.request)
 
