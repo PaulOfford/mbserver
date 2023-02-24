@@ -41,6 +41,9 @@ Earlier versions of these commands are still supported; MB.LST, MB.L, MB.EXT, MB
 ### Application Program Interface (API)
 Command formats are as follows:
 
+* `Lx,y,z~` - return a list of posts with post IDs x, y and z - to be implemented
+  * e.g. `L24,25,26~`
+  * e.g. `L24,27,28~`
 * `LEn~` - return a list of posts with the post id n, i.e. just one line
   * e.g. `LE405~`
 * `MEyymdd~` - return a list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
@@ -49,6 +52,9 @@ Command formats are as follows:
   * e.g. `LG405~`
 * `MGyymdd~` - return a list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
   * e.g. `MG22C25~`
+* `Ex,y,z~` - return an extended list of posts with post IDs x, y and z - to be implemented
+  * e.g. `E24,25,26~`
+  * e.g. `E24,27,28~`
 * `EEn~` - return an extended list of posts with the post id n, i.e. just one line
   * e.g. `EE405~`
 * `FEyymdd~` - return an extended list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
