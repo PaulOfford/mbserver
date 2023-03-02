@@ -6,7 +6,7 @@
 # Enable TCP Server API
 # Accept TCP Requests
 
-mb_revision = '8'
+mb_revision = '9'
 
 server = ('127.0.0.1', 2442)
 msg_terminator = '♢'

@@ -5,7 +5,7 @@ from mb_server import logmsg
 from server_settings import *
 
 api_tests = [
-    ['CLIENT: SERVER  L~ ♢', 'CLIENT \+L~'],
+    ['CLIENT: SERVER  L~ ♢', 'CLIENT \+L~\n25 - FALCONSAT-3 NEARS REENTRY[\\s\\S]*29 - RSGB PROPOGATION NEWS'],
     ['CLIENT: SERVER  L22~ ♢', 'CLIENT \+L22~\n22 - HAARP THANKS HAMS'],
     ['CLIENT: SERVER  L23,27~ ♢', 'CLIENT \+L23,27~\n23 - K7RA SOLAR UPDATE\n27 - RSGB PROPOGATION NEWS'],
     ['CLIENT: SERVER  LE22~ ♢', 'CLIENT \+LE22~\n22 - HAARP THANKS HAMS'],
@@ -15,6 +15,8 @@ api_tests = [
     ['CLIENT: SERVER  ME23E20~ ♢', None],
     ['CLIENT: SERVER  MG23120~ ♢', 'CLIENT \+MG23120~\n27 - RSGB PROPOGATION[\\s\\S]*29 - RSGB PROPOGATION NEWS'],
 
+    ['CLIENT: SERVER  E~ ♢',
+     'CLIENT \+E~\n25 - 2023-01-20 - FALCONSAT-3 NEARS REENTRY[\\s\\S]*29 - 2023-01-27 - RSGB PROPOGATION NEWS'],
     ['CLIENT: SERVER  E22~ ♢', 'CLIENT \+E22~\n22 - 2023-01-13 - HAARP THANKS HAMS'],
     ['CLIENT: SERVER  E27,29~ ♢', 'CLIENT \+E27,29~\n'
                                   '27 - 2023-01-22 - RSGB PROPOGATION NEWS\n29 - 2023-01-27 - RSGB PROPOGATION NEWS'],

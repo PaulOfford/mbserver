@@ -17,7 +17,7 @@ Before you try this code, there are three videos you are going to want to watch:
 Commands can be in one of two formats:
 
 * Command Line Interface (CLI) - typically sent from the Outgoing Message Box of JS8Call on a client machine
-* Application Program Interface (API) - typically sent from an application running on the client machine and communicating using JS8
+* Application Program Interface (API) - typically sent from an application (such as mbclient) running on the client machine and communicating using JS8
 
 The client SHOULD NOT switch between formats during a conversation.  Although this may work, there is no guarantee it will work in the future.
 
@@ -26,25 +26,28 @@ The commands must be directed to the server, i.e. prefixed with the server stati
 ### Command Line Interface (CLI)
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
-* M.L - list all posts available - the output will be limited to a list of 5
+* M.L - list the five most recent blogs
+  * The range of this list can be changed by changing lst_limit in server_settings.py
 * M.L >n - list all posts with an id greater than n
 * M.L yyyy-mm-dd - list all posts dated yyyy-mm-dd
 * M.L >yyyy-mm-dd - list all posts created after yyyy-mm-dd
-* M.E - as per MB.LST but with list entries that include the date of the post
-* M.E >n - as per MB.LST but with list entries that include the date of the post
-* M.E yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
-* M.E >yyyy-mm-dd - as per MB.LST but with list entries that include the date of the post
+* M.E - as per M.L but with list entries that include the date of the post
+* M.E >n - as per M.L but with list entries that include the date of the post
+* M.E yyyy-mm-dd - as per M.L but with list entries that include the date of the post
+* M.E >yyyy-mm-dd - as per M.L but with list entries that include the date of the post
 * M.G n - get the post with the id n
 
-Earlier versions of these commands are still supported; MB.LST, MB.L, MB.EXT, MB.E, MB.GET and MB.G.
+M.LST, M.EXT and M.GET continue to be supported.  The MB.xxx form has now been dropped to reduce the
+amount of code to maintain.
+
+Earlier versions of the CLI included a CLI parser and parameter checking.  Revision 9 included a significant rewrite of the CLI such that the CLI now just translates requests into the API form and checking is done in the API.  This provides better code layering and reduces the amount of code to maintain.
 
 ### Application Program Interface (API)
 Command formats are as follows:
 
-* `L~` - return a list the most recent posts on the server - to be implemented
-  * e.g. `L24,25,26~`
-  * e.g. `L24,27,28~`
-* `Lx,y,z~` - return a list of posts with post IDs x, y and z - to be implemented
+* `L~` - return a list the most recent posts on the server
+  * e.g. `L~`
+* `Lx,y,z~` - return a list of posts with post IDs x, y and z
   * e.g. `L24,25,26~`
   * e.g. `L24,27,28~`
 * `Ln~` - return a list of posts with the post id n, i.e. just one line
@@ -58,7 +61,10 @@ Command formats are as follows:
   * e.g. `LG405~`
 * `MGyymdd~` - return a list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
   * e.g. `MG22C25~`
-* `Ex,y,z~` - return an extended list of posts with post IDs x, y and z - to be implemented
+* `E~` - return an extended list of the most recent posts on the server
+  * e.g. `E~`
+  * This format is deprecated in favour of the En~ form
+* `Ex,y,z~` - return an extended list of posts with post IDs x, y and z
   * e.g. `E24,25,26~`
   * e.g. `E24,27,28~`
 * `En~` - return an extended list of posts with the post id n, i.e. just one line
@@ -98,7 +104,8 @@ Although we show four digits above for the reference (nnnn), the server supports
 
 ## Installation
 
-* Pull the repo or download the zip file from here
+* Clone the repo or download the zip file from here - https://github.com/PaulOfford/mbserver
+  * Click on the green Clone button
 * Create a posts directory on your PC
 * Move the sample posts downloaded into the posts directory
 * In settings.py, change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
