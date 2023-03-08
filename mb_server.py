@@ -29,6 +29,7 @@ class Js8CallApi:
 
     connected = False
     my_station = ''
+    my_blog = ''
     my_grid = ''
 
     def __init__(self):
@@ -56,9 +57,11 @@ class Js8CallApi:
         self.my_grid = grid
         return
 
-    def set_my_station(self, station_id):
+    def set_my_station(self, station_id: str):
         self.my_station = station_id
-        return
+
+    def set_my_blog(self, blog: str):
+        self.my_blog = blog
 
     def listen(self):
         # the following block of code provides a socket recv with a 10-second timeout
@@ -276,19 +279,15 @@ class MbAnnouncement:
         self.latest_post_date = latest_post_values[2]
         return
 
-    def send_mb_announcement(self, js8call_api):
+    def send_mb_announcement(self, js8call_api: Js8CallApi):
         # get the current epoch
         epoch = time.time()
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
-            message = '@MB {pid}'.format(
-                pid=self.latest_post_id
-            )
+            message = f"@MB {js8call_api.my_blog} {self.latest_post_id} {self.latest_post_date}"
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
-
-        return
 
 
 class MbServer:
@@ -343,7 +342,7 @@ class MbServer:
         else:
             return None
 
-    def run_server(self):
+    def run_server(self, blog_name: [None, str]):
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
@@ -352,7 +351,11 @@ class MbServer:
         if js8call_api.connected:
             message = js8call_api.listen()
             if message:
-                self.process(message)
+                typ = message.get('type', '')
+                value = message.get('value', '')
+                if typ == 'STATION.GRID':
+                    logmsg(3, 'resp: ' + value)
+                    js8call_api.set_my_grid(value)
             else:
                 logmsg(1, 'Unable to get My Grid.')
                 logmsg(1, 'Check in File -> Settings -> General -> '
@@ -363,7 +366,15 @@ class MbServer:
             if js8call_api.connected:
                 message = js8call_api.listen()
                 if message:
-                    self.process(message)
+                    typ = message.get('type', '')
+                    value = message.get('value', '')
+                    if typ == 'STATION.CALLSIGN':
+                        logmsg(3, 'resp: ' + value)
+                        js8call_api.set_my_station(value)
+                        if blog_name:
+                            js8call_api.set_my_blog(blog_name)
+                        else:
+                            js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
                 else:
                     logmsg(1, 'Unable to get My Callsign.')
                     logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
@@ -395,6 +406,7 @@ class MbServer:
                 elif typ == 'STATION.CALLSIGN':
                     logmsg(3, 'resp: ' + value)
                     js8call_api.set_my_station(value)
+                    js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
 
                 elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                     rsp_message = self.process(message)
@@ -407,8 +419,9 @@ class MbServer:
 
 
 def main():
+    global blog_name
     s = MbServer()
-    s.run_server()
+    s.run_server(blog_name)
 
 
 if __name__ == '__main__':
