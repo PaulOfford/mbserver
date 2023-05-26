@@ -17,6 +17,7 @@
 
 import json
 import select
+import os
 
 from socket import socket, AF_INET, SOCK_STREAM
 from server_api import *
@@ -343,6 +344,13 @@ class MbServer:
             return None
 
     def run_server(self, blog_name: [None, str]):
+        # check the posts directory looks OK
+        if os.path.exists(posts_dir) == False:
+            logmsg(1, "err: Can't find the posts directory")
+            logmsg(1, 'info: Check that the posts_dir value in server_settings.py is correct')
+            exit(1)
+
+
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
