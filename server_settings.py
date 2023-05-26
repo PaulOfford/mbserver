@@ -6,7 +6,7 @@
 # Enable TCP Server API
 # Accept TCP Requests
 
-mb_revision = '10'
+mb_revision = '11'
 
 blog_name = None  # if None, defaults to the callsign
 
