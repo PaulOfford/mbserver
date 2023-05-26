@@ -1,5 +1,7 @@
 import unittest
 import re
+import os
+
 from mb_server import MbServer
 from mb_server import logmsg
 from server_settings import *
@@ -62,6 +64,12 @@ debug = True
 class TestProcess(unittest.TestCase):
 
     def setUp(self) -> None:
+        # check the posts directory looks OK
+        if not os.path.exists(posts_dir):
+            logmsg(1, "err: Can't find the posts directory")
+            logmsg(1, 'info: Check that the posts_dir value in server_settings.py is correct')
+            logmsg(1, "err: ** THE FOLLOWING TESTS WILL FAIL **")
+
         self.s = MbServer()
 
     def test_api(self):
