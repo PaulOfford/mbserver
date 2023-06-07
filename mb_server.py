@@ -298,13 +298,18 @@ class MbAnnouncement:
     next_announcement = 0
 
     def latest_post_meta(self):
-        file_list = sorted(glob.glob(posts_dir + '*.txt'))
-        latest_listing = file_list[len(file_list) - 1]
-        latest_post_values = latest_listing.split(' ', 4)
-        string_post_id = latest_post_values[0].replace(posts_dir, '')
-        self.latest_post_id = int(string_post_id)
-        self.latest_post_date = latest_post_values[2]
-        return
+        dir_informat = r"^.*[\\\\|/](\d+) - (\d\d\d\d-\d\d-\d\d) - (.+\.txt)"
+
+        file_list = sorted(glob.glob(posts_dir + '*.txt'), reverse=True)
+        for entry in file_list:
+            post_details = (re.findall(dir_informat, entry))
+            if len(post_details) > 0:
+                self.latest_post_id = int(post_details[0][0])
+                self.latest_post_date = post_details[0][1]
+                return
+
+        logmsg(1, 'There are no posts in the posts_dir - shutting down the Microblog Server')
+        exit(0)  # we haven't found any posts -> we need to exit
 
     def send_mb_announcement(self, js8call_api: Js8CallApi):
         # get the current epoch
