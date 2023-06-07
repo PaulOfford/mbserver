@@ -26,6 +26,26 @@ from logging import *
 from server_settings import lst_limit, mb_revision
 
 
+def is_valid_post_file(file_spec: str):
+    result = [()]  # default value
+
+    post_file_patterns = [
+        {'exp': "^([0-9]+) - (\\d{4}-\\d{2}-\\d{2}) - ([\\S\\s]+) *.txt", 'type': 'post_file'},
+    ]
+
+    pos = len(posts_dir)
+
+    file_name = file_spec[pos:]
+
+    for entry in post_file_patterns:
+        # try to match the request
+        result = re.findall(entry['exp'], file_name)
+        if len(result) > 0:
+            break
+
+    return result
+
+
 class Js8CallApi:
 
     connected = False
@@ -148,6 +168,9 @@ class CmdProcessors:
         lst_count = 0
         for post_id in request.post_list:
             for filename in file_list:
+                if not is_valid_post_file(filename):
+                    continue
+
                 post = self.get_post_meta(filename, include_date)
                 if (request.op == 'gt' and post['post_id'] > post_id)\
                         or (request.op == 'eq' and post['post_id'] == post_id):
@@ -170,6 +193,9 @@ class CmdProcessors:
 
         for date in request.date_list:
             for filename in file_list:
+                if not is_valid_post_file(filename):
+                    continue
+
                 post = self.get_post_meta(filename, include_date)
                 if (request.op == 'gt' and post['date'] > date)\
                         or (request.op == 'eq' and post['date'] == date):
@@ -343,13 +369,12 @@ class MbServer:
         else:
             return None
 
-    def run_server(self, blog_name: [None, str]):
+    def run_server(self, this_blog: [None, str]):
         # check the posts directory looks OK
-        if os.path.exists(posts_dir) == False:
+        if not os.path.exists(posts_dir):
             logmsg(1, "err: Can't find the posts directory")
             logmsg(1, 'info: Check that the posts_dir value in server_settings.py is correct')
             exit(1)
-
 
         js8call_api = Js8CallApi()
         js8call_api.connect()
@@ -379,8 +404,8 @@ class MbServer:
                     if typ == 'STATION.CALLSIGN':
                         logmsg(3, 'resp: ' + value)
                         js8call_api.set_my_station(value)
-                        if blog_name:
-                            js8call_api.set_my_blog(blog_name)
+                        if this_blog:
+                            js8call_api.set_my_blog(this_blog)
                         else:
                             js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
                 else:
@@ -427,7 +452,6 @@ class MbServer:
 
 
 def main():
-    global blog_name
     s = MbServer()
     s.run_server(blog_name)
 
