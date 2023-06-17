@@ -23,7 +23,8 @@ from socket import socket, AF_INET, SOCK_STREAM
 from server_api import *
 from server_cli import *
 from logging import *
-from server_settings import lst_limit, mb_revision
+from server_settings import lst_limit
+from _version import __version__
 
 
 def is_valid_post_file(file_spec: str):
@@ -462,5 +463,5 @@ def main():
 
 
 if __name__ == '__main__':
-    logmsg(1, 'info: Microblog Server revision ' + mb_revision)
+    logmsg(1, 'info: Microblog Server ' + __version__)
     main()
