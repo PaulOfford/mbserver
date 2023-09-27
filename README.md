@@ -93,6 +93,15 @@ The @MB announcement mechanism is controlled by three configuration parameters i
 
 For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.  To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box and click OK.
 
+## MB Server Query
+
+Depending on the announcement timers used, an operator may have to wait
+some considerable time before discovering contactable servers.  To avoid this
+wait, the user can send the letter Q (for Query) to the @MB group.  Servers
+receiving this command will immediately send an @MB announcement.
+
+e.g. `@MB Q`
+
 ## Microblog Post File
 A microblog post can contain any text content.  All text will be encoded as UTF8 and lower case letters will be shifted to upper case on transmission.
 
