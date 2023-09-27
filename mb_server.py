@@ -107,6 +107,18 @@ class Js8CallApi:
 
         return message
 
+    def listen_mock(self):
+        content = '{"params":{"CMD":" ","DIAL":14078000,"EXTRA":"","FREQ":14079060,"FROM":"2E0FGO","GRID":" JO01","OFFSET":1060,"SNR":-7,"SPEED":0,"TDRIFT":0.5,"TEXT":"2E0FGO: @MB  Q \xe2\x99\xa2 ","TO":"@MB","UTC":1695826287443,"_ID":-1},"type":"RX.DIRECTED","value":"2E0FGO: @MB  Q \xe2\x99\xa2 "}'
+
+        time.sleep(1)
+
+        try:
+            message = json.loads(content)
+        except ValueError:
+            message = {}
+
+        return message
+
     @staticmethod
     def to_message(typ, value='', params=None):
         if params is None:
@@ -428,6 +440,7 @@ class MbServer:
                     mb_announcement.send_mb_announcement(js8call_api)
 
                 message = js8call_api.listen()
+                # message = js8call_api.listen_mock()
 
                 if not message:
                     continue
@@ -436,7 +449,7 @@ class MbServer:
                 value = message.get('value', '')
 
                 if not typ:
-                    return
+                    continue
 
                 elif typ == 'STATION.GRID':
                     logmsg(3, 'resp: ' + value)
@@ -448,10 +461,14 @@ class MbServer:
                     js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
 
                 elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-                    rsp_message = self.process(message)
-                    if rsp_message:
-                        logmsg(1, 'resp: ' + rsp_message)
-                        js8call_api.send('TX.SEND_MESSAGE', rsp_message)
+                    # if we have received an @MB Q we need to handle differently to commands
+                    if re.search(r"^\S+: @MB\s+Q", value):
+                        mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
+                    else:
+                        rsp_message = self.process(message)
+                        if rsp_message:
+                            logmsg(1, 'resp: ' + rsp_message)
+                            js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
         finally:
             js8call_api.close()
