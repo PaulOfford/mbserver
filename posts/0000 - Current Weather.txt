@@ -1,0 +1,11 @@
+May 15 2023 06:56
+Lattitude; 2750.02N
+Longitide: 08131.02W
+Wind Direction: 107
+Wind Speed: 000
+Wind Gust: 000
+Temperature: 065
+Rain: 000
+Humidity: 97
+Solar Radiation: 0016
+Pressure: 1019

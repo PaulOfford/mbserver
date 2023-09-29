@@ -38,6 +38,7 @@ class CliCmd:
         {'exp': '^M.G +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'G{param}~', 'by': 'id'},
         {'exp': '^M.GET +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'G{param}~', 'by': 'id'},
 
+        {'exp': '^M.WX$', 'xlat': 'WX~', 'by': 'id'},
     ]
 
     is_cli = False

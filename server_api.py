@@ -48,6 +48,8 @@ class ApiRequest:
         {'exp': '^E\\d{4}-\\d{2}-\\d{2}~', 'proc': 'process_mb_ext', 'op': 'eq', 'by': 'date2'},
         {'exp': '^FE\\d{4}-\\d{2}-\\d{2}~', 'proc': 'process_mb_ext', 'op': 'eq', 'by': 'date2'},
         {'exp': '^FG\\d{4}-\\d{2}-\\d{2}~', 'proc': 'process_mb_ext', 'op': 'gt', 'by': 'date2'},
+
+        {'exp': '^WX~', 'proc': 'process_wx_get', 'op': 'eq', 'by': 'id'},
     ]
 
     caller = ''

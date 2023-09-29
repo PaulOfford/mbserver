@@ -266,7 +266,7 @@ class CmdProcessors:
         f.close()
         return post
 
-    def process_mb_get(self, request: ApiRequest):
+    def process_mb_get(self, request: ApiRequest) -> str:
         filename = ''
         mb_message = ''
         success = '-'  # assume failure
@@ -303,6 +303,9 @@ class CmdProcessors:
 
         return header + mb_message
 
+    def process_wx_get(self, req: ApiRequest) -> str:
+        req.post_list.append(0)
+        return self.process_mb_get(req)
 
 class MbAnnouncement:
 
