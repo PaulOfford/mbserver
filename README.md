@@ -1,7 +1,15 @@
-# Microblog Server (mb_server.py)
+# Microblog Server (MbServer)
 In a video published in January 2023, Julian (OH8STN) shared an idea he had regarding the use of data mode radio to share information in the same way as you might share using social media.  Julian has a particular interest in emergency comms and his idea is to provide a microblogging facility that's decentralised and does not require the Internet.
 
-The code here is a very simple (maybe simplistic) server.  mb_server supports two request types; LST to list the microblog posts available, EXT to list the posts with the date of each in the listing and GET to retrieve a post.  The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API, accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and TCP port 2442.
+The code here is a very simple (maybe simplistic) server.  MbServer supports several request types:
+
+* List the microblog posts available
+* List the posts with the date of each in the listing
+* Get the contents of a post
+* Get a weather report
+* Ask all MbServers to announce themselves
+
+The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API, accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and TCP port 2442.
 
 I have included brief details of the JS8Call command verbs and response types below.
 
@@ -10,37 +18,46 @@ There's an important note about the state of the Outgoing Messages area in the s
 ## Before you get started
 Before you try this code, there are three videos you are going to want to watch:
 * Off Grid Ham Radio Micro Blogging with JS8Call & VARAC - https://youtu.be/szZlPL2h534
-* JS8Call Microblogging Overview - https://youtu.be/uUsUmD2c2SY
+* Microblogging Quick Start - https://youtu.be/URtUwvGok1Q
+* Introduction to MbServer - https://youtu.be/usFkt7Kcs_g
 
 ## Microblog Commands
 
 Commands can be in one of two formats:
 
 * Command Line Interface (CLI) - typically sent from the Outgoing Message Box of JS8Call on a client machine
-* Application Program Interface (API) - typically sent from an application (such as mbclient) running on the client machine and communicating using JS8
+* Application Program Interface (API) - typically sent from an application (such as MbClient) running on the client machine and communicating using JS8
 
 The client SHOULD NOT switch between formats during a conversation.  Although this may work, there is no guarantee it will work in the future.
 
-The commands must be directed to the server, i.e. prefixed with the server station callsign.  @ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way, albeit once any outstanding microblog requests have been satisfied.  mb_server simply ignores all directed received messages that don't match the defined command formats.  This is an important point as **the requestor will not receive an error message if the command is incorrect**.  This is intentional to allow for the widest range of normal JS8Call messages.
+The commands must be directed to the server, i.e. prefixed with the server station callsign.  An exception is
+use of the callsign group @MB.  We'll cover this later in this document under header MB Server Query.
+@ALLCALL is not supported.  JS8Call can be used by the server station operator in the normal way,
+albeit once any outstanding microblog requests have been satisfied.  MbServer simply ignores all
+directed received messages that don't match the defined command formats.  This is an important point
+as **the requestor will not receive an error message if the command is incorrect**.  This is intentional
+to allow for the widest range of normal JS8Call messages.
 
 ### Command Line Interface (CLI)
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
-* M.L - list the five most recent blogs
+* `M.L` - list the five most recent blogs
   * The range of this list can be changed by changing lst_limit in server_settings.py
-* M.L >n - list all posts with an id greater than n
-* M.L yyyy-mm-dd - list all posts dated yyyy-mm-dd
-* M.L >yyyy-mm-dd - list all posts created after yyyy-mm-dd
-* M.E - as per M.L but with list entries that include the date of the post
-* M.E >n - as per M.L but with list entries that include the date of the post
-* M.E yyyy-mm-dd - as per M.L but with list entries that include the date of the post
-* M.E >yyyy-mm-dd - as per M.L but with list entries that include the date of the post
-* M.G n - get the post with the id n
+* `M.L >n` - list all posts with an id greater than n
+* `M.L yyyy-mm-dd` - list all posts dated yyyy-mm-dd
+* `M.L >yyyy-mm-dd` - list all posts created after yyyy-mm-dd
+* `M.E` - as per M.L but with list entries that include the date of the post
+* `M.E >n` - as per M.L but with list entries that include the date of the post
+* `M.E yyyy-mm-dd` - as per M.L but with list entries that include the date of the post
+* `M.E >yyyy-mm-dd` - as per M.L but with list entries that include the date of the post
+* `M.G n` - get the post with the id n
 
-M.LST, M.EXT and M.GET continue to be supported.  The MB.xxx form has now been dropped to reduce the
+M.LST, M.EXT and M.GET are no longer supported.  The MB.xxx form has also been dropped to reduce the
 amount of code to maintain.
 
-Earlier versions of the CLI included a CLI parser and parameter checking.  Revision 9 included a significant rewrite of the CLI such that the CLI now just translates requests into the API form and checking is done in the API.  This provides better code layering and reduces the amount of code to maintain.
+Earlier versions of the CLI included a CLI parser and parameter checking.  Revision 9 included a
+significant rewrite of the CLI such that the CLI now just translates requests into the API form and
+checking is done in the API.  This provides better code layering and reduces the amount of code to maintain.
 
 ### Application Program Interface (API)
 Command formats are as follows:
@@ -111,22 +128,38 @@ The post file name must start with the blog ID and a date like this:
 
 Although we show four digits above for the reference (nnnn), the server supports any number of digits up to a value of 2000000000.
 
+## Weather File
+MbServer can deliver weather information, which the user requests with `M.WX`.  The file name must be:
+
+`0000 - Current Weather.txt`
+
+The content can be any text supported by JS8Call.  The sample directory contains an example of a
+current weather file.
+
 ## Installation
 
 * Clone the repo or download the zip file from here - https://github.com/PaulOfford/mbserver
   * Click on the green Clone button
-* Create a posts directory on your PC
-* Move the sample posts downloaded into the posts directory
-* In settings.py, change the posts_dir variable in the script to reflect the location of the directory - note the use of \\\\ in Windows paths
+* In settings.py, change the posts_dir variable to reflect the location of your posts
+directory - note the use of \\\\ in Windows paths\*
 * In JS8Call go to *File -> Settings -> Reporting*
 * In the API section check Enable TCP Server API and Accept TCP Request
-* Run the mb_server.py script
+* In JS8Call, go to *File -> Settings -> General -> Networking & Autoreply -> Idle timeout - 
+  disable autoreply after:* Click and hold the down arrow scroll icon until the value shows as Disabled
+* In JS8Call, go to *File -> Settings -> General -> Station -> Callsign Groups (comma separated)* add
+  `@MB`
+* Click OK to save all JS8Call settings
+* In JS8Call, click the **Deselect** button to ensure no stations are selected.
+* Open a command box, `cd` to the directory containing the MbServer code
+* Run the mb_server.py script with the command `python mb_server.py`
 
 Your station is now ready to accept calls for microblog posts.
 
-If a JS8Call user does not interact with the program via the keyboard for a period of time, an idle timer pops and the user gets a dialog box warning "You have been idle for more than 60 minutes".  Unless you respond to the dialog box, JS8Call stops transmitting, including the sending of messages pushed through its API.  This timeout is controlled by *File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after:* The default value is 60 minutes of inactivity.  The maximum value is 1440 minutes or 24 hours.  To run the server for prolonged periods you should diable this timer on the server machine.
-
-In JS8Call, go to *File -> Settings -> General -> Networking & Autoreply -> Idle timeout - disable autoreply after:* Click and hold the down arrow scroll icon until the value shows as Disabled.
+\* Prior to version 0.17.0, there were additional steps to create a posts directory and then to copy sample
+data into that directory.  MbServer now comes pre-configured to deliver sample posts from the sample
+posts directory that is in the downloaded package.  This change was made to provide a simpler installation
+for those just wanting to try MbServer. You can, of course, move this directory to wherever you prefer and
+populate it with your own posts. 
 
 ## Running the server
 You don't need to stop the server to add a new post to the posts directory; the server will check the list of posts on each request and update the latest post information in the next @MB announcement.

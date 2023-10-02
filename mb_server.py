@@ -478,8 +478,9 @@ class MbServer:
 
 
 def main():
-    s = MbServer()
-    s.run_server(blog_name)
+    if len(blog_name) == 0:
+        s = MbServer()
+        s.run_server(blog_name)
 
 
 if __name__ == '__main__':
