@@ -1,5 +1,7 @@
 # Microblog Server (MbServer)
-In a video published in January 2023, Julian (OH8STN) shared an idea he had regarding the use of data mode radio to share information in the same way as you might share using social media.  Julian has a particular interest in emergency comms and his idea is to provide a microblogging facility that's decentralised and does not require the Internet.
+In a video published in January 2023, Julian (OH8STN) shared an idea he had regarding the use of data mode radio to
+share information in the same way as you might share using social media.  Julian has a particular interest in emergency
+comms and his idea is to provide a microblogging facility that's decentralised and does not require the Internet.
 
 The code here is a very simple (maybe simplistic) server.  MbServer supports several request types:
 
@@ -9,11 +11,14 @@ The code here is a very simple (maybe simplistic) server.  MbServer supports sev
 * Get a weather report
 * Ask all MbServers to announce themselves
 
-The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API, accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and TCP port 2442.
+The server uses JS8Call to provide the transport mechanism.  The server interfaces with JS8Call using the latter's API,
+accessed via TCP, i.e. mb_server makes a TCP connection to JS8Call.  By default, the API is at IP address 127.0.0.1 and
+TCP port 2442.
 
 I have included brief details of the JS8Call command verbs and response types below.
 
-There's an important note about the state of the Outgoing Messages area in the section Running the Server - please read this.
+There's an important note about the state of the Outgoing Messages area in the section Running the Server - please read
+this.
 
 ## Before you get started
 Before you try this code, there are three videos you are going to want to watch:
@@ -26,9 +31,11 @@ Before you try this code, there are three videos you are going to want to watch:
 Commands can be in one of two formats:
 
 * Command Line Interface (CLI) - typically sent from the Outgoing Message Box of JS8Call on a client machine
-* Application Program Interface (API) - typically sent from an application (such as MbClient) running on the client machine and communicating using JS8
+* Application Program Interface (API) - typically sent from an application (such as MbClient) running on the client
+* machine and communicating using JS8
 
-The client SHOULD NOT switch between formats during a conversation.  Although this may work, there is no guarantee it will work in the future.
+The client SHOULD NOT switch between formats during a conversation.  Although this may work, there is no guarantee it
+will work in the future.
 
 The commands must be directed to the server, i.e. prefixed with the server station callsign.  An exception is
 use of the callsign group @MB.  We'll cover this later in this document under header MB Server Query.
@@ -108,7 +115,9 @@ The @MB announcement mechanism is controlled by three configuration parameters i
 * `announce` - switches the mechanism on and off; default is True which means on
 * `mb_announcement_timer` - sets the delay, in minutes, between announcements; default is 60 mins
 
-For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.  To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box and click OK.
+For a user to receive these announcements, they must add the @MB group to the Call Activity list in JS8Call.
+To do this, right click in the list and choose Add new Station or Group... then enter @MB into the pop-up box
+and click OK.
 
 ## MB Server Query
 
@@ -120,13 +129,15 @@ receiving this command will immediately send an @MB announcement.
 e.g. `@MB Q`
 
 ## Microblog Post File
-A microblog post can contain any text content.  All text will be encoded as UTF8 and lower case letters will be shifted to upper case on transmission.
+A microblog post can contain any text content.  All text will be encoded as UTF8 and lower case letters will be shifted
+to upper case on transmission.
 
 The post file name must start with the blog ID and a date like this:
 
-`nnnn - yyy-mm-dd - Your chosen summary test`
+`nnnn - yyy-mm-dd - Your chosen summary text`
 
-Although we show four digits above for the reference (nnnn), the server supports any number of digits up to a value of 2000000000.
+Although we show four digits above for the reference (nnnn), the server supports any number of digits up to a value
+of 2000000000.
 
 ## Weather File
 MbServer can deliver weather information, which the user requests with `M.WX`.  The file name must be:
@@ -135,6 +146,46 @@ MbServer can deliver weather information, which the user requests with `M.WX`.  
 
 The content can be any text supported by JS8Call.  The sample directory contains an example of a
 current weather file.
+
+## Post File Store
+The posts delivered by MbServer are held in a local directory on the computer running the server.  These can be created
+locally using our favourite text editor.  Alternatively, we can store the posts in an upstream store, and have our
+MbServer check the store for new posts and download them into the local directory.  The upstream store can be one of
+two types:
+
+* A web server - available from version 0.18.0 onwards
+* Another MbServer - future
+
+The mechanism doesn't make any change to the Current Weather file.
+
+### Upstream Web Server
+The solution has the following characteristics:
+
+* The central store must be a web server
+* The blogs are stored as text file with extension of *.txt
+* A text file called post.lst contains a list of all the posts in the store
+
+The root location of the upstream store is defined in server_settings as posts_url_root.  The blog name is appended to
+the root so that multiple blogs can be stored on a single server at the same root location. The construction of a fully
+qualified URL operates like this:
+
+* The root is, say, https://pauloffordracing.com/wp-content/uploads/microblog_posts/
+* The blog is, say, M0PXO
+* The url for the post list becomes https://pauloffordracing.com/wp-content/uploads/microblog_posts/M0PXO/post.lst
+
+The root shown above is a live store and can be used for testing.  Excuse the rather confusing site name - this was
+the only website I had available.
+
+The MbServer operates like this:
+
+1. The @mb Announcement timer expires
+1. MbServer gets the post.lst file from the upstream server
+1. MbServer checks the list in post.lst against its local store to see if there are new posts to get
+1. MbServer gets new posts from the upstream server
+1. MbServer sends the @mb Announcement with the new status
+
+### Upstream MbServer
+Future development.
 
 ## Installation
 

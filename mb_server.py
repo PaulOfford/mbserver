@@ -15,15 +15,14 @@
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
 
-import json
-import select
 import os
 
-from socket import socket, AF_INET, SOCK_STREAM
+from js8call_driver import *
 from server_api import *
 from server_cli import *
 from logging import *
 from server_settings import lst_limit
+from upstream import UpstreamStore
 from _version import __version__
 
 
@@ -45,114 +44,6 @@ def is_valid_post_file(file_spec: str):
             break
 
     return result
-
-
-class Js8CallApi:
-
-    connected = False
-    my_station = ''
-    my_blog = ''
-    my_grid = ''
-
-    def __init__(self):
-        self.sock = socket(AF_INET, SOCK_STREAM)
-
-    def connect(self):
-        logmsg(1, 'info: Connecting to JS8Call at ' + ':'.join(map(str, server)))
-        try:
-            api = self.sock.connect(server)
-            self.connected = True
-            logmsg(1, 'info: Connected to JS8Call')
-            return api
-
-        except ConnectionRefusedError:
-            logmsg(1, 'err: Connection to JS8Call has been refused.')
-            logmsg(1, 'info: Check that:')
-            logmsg(1, 'info: * JS8Call is running')
-            logmsg(1, 'info: * JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
-            logmsg(1, 'info: * The API server port number in JS8Call matches the setting in this script'
-                      ' - default is 2442')
-            logmsg(1, 'info: * There are no firewall rules preventing the connection')
-            exit(1)
-
-    def set_my_grid(self, grid):
-        self.my_grid = grid
-        return
-
-    def set_my_station(self, station_id: str):
-        self.my_station = station_id
-
-    def set_my_blog(self, blog: str):
-        self.my_blog = blog
-
-    def listen(self):
-        # the following block of code provides a socket recv with a 10-second timeout
-        # we need this so that we call the @MB announcement code periodically
-        self.sock.setblocking(False)
-        ready = select.select([self.sock], [], [], 10)
-        if ready[0]:
-            content = self.sock.recv(65500)
-            logmsg(4, 'recv: ' + str(content))
-        else:
-            content = 'Check if announcement needed'
-
-        if not content:
-            message = {}
-            self.connected = False
-        else:
-            try:
-                message = json.loads(content)
-            except ValueError:
-                message = {}
-
-        return message
-
-    def listen_mock(self):
-        content = '{"params":{"CMD":" ","DIAL":14078000,"EXTRA":"","FREQ":14079060,"FROM":"2E0FGO","GRID":" JO01","OFFSET":1060,"SNR":-7,"SPEED":0,"TDRIFT":0.5,"TEXT":"2E0FGO: @MB  Q \xe2\x99\xa2 ","TO":"@MB","UTC":1695826287443,"_ID":-1},"type":"RX.DIRECTED","value":"2E0FGO: @MB  Q \xe2\x99\xa2 "}'
-
-        time.sleep(1)
-
-        try:
-            message = json.loads(content)
-        except ValueError:
-            message = {}
-
-        return message
-
-    @staticmethod
-    def to_message(typ, value='', params=None):
-        if params is None:
-            params = {}
-        return json.dumps({'type': typ, 'value': value, 'params': params})
-
-    def send(self, *args, **kwargs):
-        params = kwargs.get('params', {})
-        if '_ID' not in params:
-            params['_ID'] = '{}'.format(int(time.time() * 1000))
-            kwargs['params'] = params
-        message = self.to_message(*args, **kwargs)
-
-        if args[1]:  # if no args must be an api call that doesn't send a message
-            # under normal circumstances, we don't want to fill the log with post content
-            # only log the message content if running at log level 2 or above
-            if current_log_level >= 2:
-                log_line = args[1]
-            else:
-                temp = args[1].split('\n', 1)
-                log_line = temp[0]
-            logmsg(current_log_level, 'omsg: ' + self.my_station + ': ' + log_line)  # console trace of messages sent
-
-        message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
-        logmsg(2, 'send: ' + message)
-
-        if args[1] and debug:
-            logmsg(3, 'info: MB message not sent as we are in debug mode')
-            # this avoids hamlib errors in JS8Call if the radio isn't connected
-        else:
-            self.sock.send((message + '\n').encode())   # newline suffix is required
-
-    def close(self):
-        self.sock.close()
 
 
 class CmdProcessors:
@@ -307,13 +198,18 @@ class CmdProcessors:
         req.post_list.append(0)
         return self.process_mb_get(req)
 
+
 class MbAnnouncement:
 
+    this_blog = ""
     latest_post_id = 0
     latest_post_date = '2000-01-01'
     next_announcement = 0
 
-    def latest_post_meta(self):
+    def __init__(self, blog: str):
+        self.this_blog = blog
+
+    def latest_post_meta(self) -> tuple:
         dir_informat = r"^.*[\\\\|/](\d+) - (\d\d\d\d-\d\d-\d\d) - (.+\.txt)"
 
         file_list = sorted(glob.glob(posts_dir + '*.txt'), reverse=True)
@@ -322,17 +218,23 @@ class MbAnnouncement:
             if len(post_details) > 0:
                 self.latest_post_id = int(post_details[0][0])
                 self.latest_post_date = post_details[0][1]
-                return
+                return (self.latest_post_id, self.latest_post_date)
 
-        logmsg(1, 'There are no posts in the posts_dir - shutting down the Microblog Server')
-        exit(0)  # we haven't found any posts -> we need to exit
+        return (0, "1970-01-01")
+
+    def is_announcement_needed(self):
+        epoch = time.time()
+        if epoch > self.next_announcement and announce:
+            return True
+        else:
+            return False
 
     def send_mb_announcement(self, js8call_api: Js8CallApi):
         # get the current epoch
         epoch = time.time()
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
-            message = f"@MB {js8call_api.my_blog} {self.latest_post_id} {self.latest_post_date}"
+            message = f"@MB {self.this_blog} {self.latest_post_id} {self.latest_post_date}"
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
@@ -340,6 +242,7 @@ class MbAnnouncement:
 
 class MbServer:
 
+    this_blog = ''
     request = None
 
     def process(self, mb_req) -> [str, None]:
@@ -400,46 +303,41 @@ class MbServer:
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
-        js8call_api.send('STATION.GET_GRID', '')
-        logmsg(2, 'call: STATION.GET_GRID')
+        js8call_api.send('STATION.GET_CALLSIGN', '')
+        logmsg(2, 'call: STATION.GET_CALLSIGN')
         if js8call_api.connected:
             message = js8call_api.listen()
             if message:
                 typ = message.get('type', '')
                 value = message.get('value', '')
-                if typ == 'STATION.GRID':
+                if typ == 'STATION.CALLSIGN':
                     logmsg(3, 'resp: ' + value)
-                    js8call_api.set_my_grid(value)
+                    js8call_api.set_my_station(value)
+
+                    # we need to set the blog name
+                    if this_blog:
+                        self.this_blog = this_blog
+                    else:
+                        self.this_blog = value  # default blog name is the station callsign
             else:
-                logmsg(1, 'Unable to get My Grid.')
-                logmsg(1, 'Check in File -> Settings -> General -> '
-                       'Station -> Station Details -> My Maidenhead Grid Locator')
+                logmsg(1, 'Unable to get My Callsign.')
+                logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
 
-            js8call_api.send('STATION.GET_CALLSIGN', '')
-            logmsg(2, 'call: STATION.GET_CALLSIGN')
-            if js8call_api.connected:
-                message = js8call_api.listen()
-                if message:
-                    typ = message.get('type', '')
-                    value = message.get('value', '')
-                    if typ == 'STATION.CALLSIGN':
-                        logmsg(3, 'resp: ' + value)
-                        js8call_api.set_my_station(value)
-                        if this_blog:
-                            js8call_api.set_my_blog(this_blog)
-                        else:
-                            js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
-                else:
-                    logmsg(1, 'Unable to get My Callsign.')
-                    logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
-
-        mb_announcement = MbAnnouncement()
+        mb_announcement = MbAnnouncement(self.this_blog)
 
         # this debug code block processes simulated incoming commands
 
         try:
             while js8call_api.connected:
-                if announce:
+                if mb_announcement.is_announcement_needed():
+                    # refresh the blog with new posts
+                    if posts_url_root:
+                        blog_store = UpstreamStore(posts_url_root, posts_dir, self.this_blog)
+                        meta = mb_announcement.latest_post_meta()
+                        next_post_needed = meta[0] + 1
+                        logmsg(1, "info: Checking central store for new posts")
+                        blog_store.get_new_content(starting_at=next_post_needed)
+
                     mb_announcement.send_mb_announcement(js8call_api)
 
                 message = js8call_api.listen()
@@ -454,14 +352,15 @@ class MbServer:
                 if not typ:
                     continue
 
-                elif typ == 'STATION.GRID':
-                    logmsg(3, 'resp: ' + value)
-                    js8call_api.set_my_grid(value)
-
                 elif typ == 'STATION.CALLSIGN':
                     logmsg(3, 'resp: ' + value)
                     js8call_api.set_my_station(value)
-                    js8call_api.set_my_blog(value)  # this is a temp measure until we fully implement blog names
+
+                    # we need to set the blog name
+                    if this_blog:
+                        self.this_blog = this_blog
+                    else:
+                        self.this_blog = value  # default blog name is the station callsign
 
                 elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                     # if we have received an @MB Q we need to handle differently to commands

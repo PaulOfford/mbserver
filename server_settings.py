@@ -22,11 +22,13 @@ current_log_level = 1  # normal logging
 
 # posts_url_root defines the location of a central blog store that can be used when there is an Internet connection
 # this is work in progress
+# feel free to use the following URL for testing
+# posts_url_root = "https://pauloffordracing.com/wp-content/uploads/microblog_posts/"
 posts_url_root = ""
 
 # posts_dir specifies the location of the microblog posts on your computer
-# you can use \\ or / as path separators
-# the posts_dir value must be enclosed in quotes and end with \\ or /
+# if running on Windows, you must use \\ as path separators
+# the posts_dir value must be enclosed in quotes and end with \\
 # the posts_dir value (and hence directory path) can contain spaces
 # prior to version 0.17.0, posts_dir = 'C:\\Development\\microblog\\posts\\'
 posts_dir = ".\\posts\\"
