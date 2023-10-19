@@ -219,6 +219,178 @@ You don't need to stop the server to add a new post to the posts directory; the 
 
 PS: My programming skills are self-taught and so don't be surprised if my coding standard are poor :-)
 
+## RAD Error Detection/Correction
+**This functionality has not yet been added to MbServer or MbClient**
+### Terminology
+* Request - a command flowing from MbClient to MbServer
+* Response - data flowing from an MbServer to an MbClient
+* Message - a microblog request or response
+* Cell - a fixed size fragment of a message and the smallest piece of a message that can be retransmitted
+* Segment - a part of a message that comprises up to 36 cells
+  * A message comprises one or more segments which, in turn, comprise multiple cells
+* Sender - a program (e.g. MbClient or MbServer) that is sending a message
+* Receiver - a program (e.g. MbClient or MbServer) that is receiving a message
+  * Note that, in this case, receiver doesn't mean your radio/transceiver
+* Partners - a pair of sender and receiver programs that are communicating with each other
+* RDA-encode - split a message into segments and cells
+
+### Introduction
+JS8 over HF radio can be lossy.  When sending keyboard-to-keyboard or messages to an
+inbox, the impact of such loss is probably small - humans can tolerate a fair amount
+of corruption in a message.  Microblogging is a little different because:
+* In an em-comms situation, accurate information is critical
+* Microblog messages are quite long and so requesting the retransmission of an entire listing or post is tedious
+* Frustration in needing to retransmit entire messages will be exacerbated by the planned support for post uploads 
+
+Here we document a proposed **Reliable Application Data (RAD)** protocol.  I (M0PXO) considered designing RAD as a
+transport protocol, similar to TCP, but this would mean enveloping the application messages in another header, and
+the overhead would be unacceptable.
+<pre>
++--------------------------------------------------------------------------------------------------------------+
+|                                                  MESSAGE                                                     |
++--------------------------------------------------------------------------------------------------------------+
+|                                SEGEMENT                            |                SEGMENT                  |
++--------------------------------------------------------------------------------------------------------------+
+| CELL * CELL *             total of 36 cells          * CELL * CELL | CELL * CELL * CELL * CELL * CELL * CELL |
++--------------------------------------------------------------------------------------------------------------+
+</pre>
+RAD uses a mechanism whereby
+an application message (such as List output) is, ultimately, split into cells.  Each cell has a single character
+cell_id plus a fragment of application data.  A receiver detects loss of cells by determining discontiguous cells
+based on the cell_id.  The receiver then requests retransmission of the missing cells.
+
+**NB:** Cells are not the same as JS8 frames.  Cells may occasionally align with JS8 frames, but mostly will not.
+
+Cells are grouped into segments to allow for longer messages to be sent without needing to use large cell sizes.  Cell
+sizes are covered in more detail below. 
+
+**This is work in progress.**
+
+### Design Considerations
+Design considerations are:
+* Minimal overhead, bearing in mind the data rates
+* Preferably, stateless operation
+
+So that the sending station can retransmits fragments of a message, protocols like TCP hold a copy of the original
+fragments (called _segments_ in TCP) until successful reception has been acknowledged.  To allow the server to be
+stateless, we should avoid the need for such a mechanism.
+
+The receiving program needs to be able to deal with the following scenarios:
+* Loss of a JS8 frame
+* Loss of multiple non-contiguous JS8 frames
+* Loss of contiguous JS8 frames
+* Loss of a segment header
+* Loss of multiple segment headers
+* Loss of a segment header and the following JS8 frame(s)
+
+Where possible, we send a request to the message sender asking it to **retransmit the missing
+cells**. If this is not possible, we need backstops that request:
+* Retransmission of a segment
+* Retransmission of the entire message
+
+### RAD Protocol
+#### Message Format
+The format of an application message that has been encoded to use RAD is:
+<pre>
++--------------------------------------------------------------------------------------------------------------+
+|sender: receiver |seg_id|cell_id|content|cell_id|content| ... |seg_id|cell_id|content| ... |cell_id|content| ♢|
++--------------------------------------------------------------------------------------------------------------+
+</pre>
+Example:
+
+`M0PXO: 2E0FGO 050+L13~1\n\n13 22023-310-124 GAZA5 - UN6 CONC7ERNS 8OVER 9IDF OARDER  ♢`
+
+**Sender and Receiver**
+It's assumed that the sender and receiver strings are correct since (a) we
+would not receive the message if they were not correct, and (b) we can't mess with this area as it would cause
+problems with JS8Call.  These values, therefore, fall outside the RAD encoding.
+
+**Segments**
+The remainder of the message is split into up to 36 segments.  Each segment has a seg_id of
+0 to 9 then A to Z.
+
+**Cells**
+Each segment is further subdivided into fixed width cells
+that can be from 3 to 35 characters in length.  Empty positions in a
+cell are padded with blanks, which should only occur in the last cell
+of the last segment. Each cell has a cell_id of 0 to 9
+then A to Z. Where the cell size appears in a RAD message, it too is
+encoded as 0-9 and then A-Z, hence a maximum cell size of 35 characters.
+
+**Terminator**
+The standard JS8 terminator (by default space followed by a diamond - ♢)
+indicates the end of the message.  The terminator falls outside the
+segment and cell structure.
+
+#### List, Extended List & Get
+The Reliable Application Data (RAD) protocol requires commands to be modified by suffixing the command with the cell
+size. Here are some examples:
+* `L24,25,26~5` - a listing request using RAD with a cell size of 5 characters
+* `EG405~G` - an extended listing request using RAD with a cell size of 16 characters
+* `GE412~8` - a get request using RAD with a cell size of 8 characters
+
+Note that a character immediately after the tilde (~) character specifies the cell size and, by implication,
+the use of RAD.
+
+If a retransmission is needed, the request is sent again with a list of segments and cells appended to the command.
+
+`cmd~cell_size seg_id cell_id seg_id cell_id ` - the spaces have been added here for readability.  Here are some
+examples:
+* `L24,25,26~5020Z1F` - a retransmission request asking that seg 0 cell 2, seg 0 cell 35 and seg 1 cell 15 be resent
+* `GE412~80.` - a retransmision request asking that all of segment 0 be resent - period (.) means all cells
+* `EG405~G.` - a retransmision request asking that the entire message be resent
+
+Resending the command avoids the server having to hold a copy of a transmitted message until it has been acknowledged,
+and so maintains the stateless nature of client requests to the server.
+
+There is one foreseen issue - here is the scenario.
+* The command L~ or E~ is sent by the client
+* The server responds with a listing accurate at that point in time
+* Another post is added to the blog
+* The server receives a request to retransmit cells for the L~ or E~ command
+
+Because a new post has been added, the listing will cover different posts and so the cells referenced will be incorrect.
+This means that the L~ and E~ commands cannot be used with RAD.
+
+The sender doesn't determine if messages or retransmitted segments have been successfully received.  The receiver is
+responsible for all aspects of message reception and the need for retransmission.
+
+#### Upload
+This is for development.  Early thoughts are:
+* The upload request would include the blog name, file name and file content
+  * Maybe use the letter P for Put, i.e. the opposite of Get
+* The client would RDA-encode the request (split into segments and cells) and send it
+* The server would allocate a post ID and save the message
+* The server would send a positive acknowledgement with the original command letter and the allocated post id
+  * e.g. +P52
+* If frames are lost, the server would hold all received cells and request those missing:
+  * e.g. -P0.1A - resend all of seg 0 and seg 1 cell 10 using the original cell size
+
+This means the client would need to:
+* Maintain a copy of the upload message
+* Wait for a positive acknowledgement before it could send further files.
+
+#### Cell Size and Max Message Length
+The maximum application message length is given by:
+
+`max_length = 36 segments * 36 cells * cell_size`
+
+With a cell size of 5, the maximum message length is 6,480.  With a cell size of 35, the maximum message length is
+about 42k.  Both of these numbers are plainly much more than is needed.
+
+I (M0PXO) considered abandoning the segment
+mechanism as this would greatly simplify the receiver code. With a cell size of 5 and a single segment, the maximum
+message length would be 180 characters.  Even with a cell size of 10, the maximum message length would be just 360
+characters and I feel this is just not quite enough.
+
+It's not yet clear what the optimum cell size might be, and is likely to vary depending on loss rate. The code is
+implemented in a way that allows the cell size to be dynamic, i.e. change as loss rates or SNR varies. It's likely that
+the optimum cell size, from a retransmission perspective, will be a length similar to that of a JS8 frame,
+and so in the range of 3 to 8 characters.  Such sizes would introduce a large overhead (8-character cells increasing
+the message size by about 12%).  Larger cell sizes would reduce the overhead but increase the time taken for
+retransmissions.  Here we see the principle trade-off, and the reason why it would be better for the cell size to
+adapt to the JS8 frame loss rate.
+
 # JS8Call API
 ## Introduction
 JS8Call provides an API that allows programmatic control of the JS8Call program.  The interface is provided via a server running within JS8Call and accessed via TCP or UDP.  The API accepts requests and sends responses in JSON formatted messages.  The API also sends asynchronous notifications as JSON messages.
