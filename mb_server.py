@@ -367,9 +367,17 @@ class MbServer:
                     if re.search(r"^\S+: @MB\s+Q", value):
                         mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
                     else:
+                        # ToDo: implement RAD
+                        # instantiate a RadMessage object here
+                        # call message = decode_rad(message) here - the method would have no affect if not rad
+                        # the RadMessage object holds rad_requested status, cell_size and any specified cell list
+                        # the default cell list would be a single "entire message" specification
+                        # decode_rad() should strip the cell list from the incoming request
                         rsp_message = self.process(message)
                         if rsp_message:
                             logmsg(1, 'resp: ' + rsp_message)
+                            # call rsp_message = encode_rad(rsp_message) here - no affect if not rad
+                            # encode_rad should use the cell list held over from the request
                             js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
         finally:
