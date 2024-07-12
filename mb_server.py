@@ -316,7 +316,7 @@ class MbServer:
 
                     # we need to set the blog name
                     if this_blog:
-                        self.this_blog = this_blog
+                        self.this_blog = this_blog[0]
                     else:
                         self.this_blog = value  # default blog name is the station callsign
             else:
@@ -385,9 +385,8 @@ class MbServer:
 
 
 def main():
-    if len(blog_name) == 0:
-        s = MbServer()
-        s.run_server(blog_name)
+    s = MbServer()
+    s.run_server(blog_name)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,10 @@
 # Enable TCP Server API
 # Accept TCP Requests
 
-blog_name = []  # if None, defaults to the callsign
+# optional: set the blog name by adding a string to the blog_name list
+# e.g. blog_name = ['UKNEWS']
+# if left empty the blog name to the callsign
+blog_name = []
 
 server = ('127.0.0.1', 2442)
 msg_terminator = '♢'
