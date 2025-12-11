@@ -234,7 +234,7 @@ class MbAnnouncement:
         epoch = time.time()
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
-            message = f"@MB {self.this_blog} {self.latest_post_id} {self.latest_post_date}"
+            message = f"@MB {self.latest_post_id} {self.latest_post_date}"
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
@@ -386,7 +386,7 @@ class MbServer:
 
 def main():
     s = MbServer()
-    s.run_server(blog_name)
+    s.run_server(None)
 
 
 if __name__ == '__main__':
