@@ -234,7 +234,11 @@ class MbAnnouncement:
         epoch = time.time()
         if epoch > self.next_announcement:
             self.latest_post_meta()  # update with the latest post info
-            message = f"@MB {self.latest_post_id} {self.latest_post_date}"
+
+            # compress the date from yyyy-mm-dd into yymmdd
+            compressed_latest_post_date = self.latest_post_date[2:4] + self.latest_post_date[5:7] + self.latest_post_date[8:10]
+
+            message = f"@MB {self.latest_post_id} {compressed_latest_post_date}"
             js8call_api.send('TX.SEND_MESSAGE', message)
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
