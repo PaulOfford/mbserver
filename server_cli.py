@@ -16,7 +16,7 @@ class CliCmd:
         {'exp': '^M.L +> *(\\d+)$', 'xlat': 'LG{param}~', 'by': 'id'},
         {'exp': '^M.LST +> *(\\d+)$', 'xlat': 'LG{param}~', 'by': 'id'},
         {'exp': '^M.E$', 'xlat': 'E~', 'by': 'id'},
-        {'exp': '^M.EST$', 'xlat': 'E~', 'by': 'id'},
+        {'exp': '^M.EXT$', 'xlat': 'E~', 'by': 'id'},
         {'exp': '^M.E +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
         {'exp': '^M.EXT +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
         {'exp': '^M.E +> *(\\d+)$', 'xlat': 'EG{param}~', 'by': 'id'},
