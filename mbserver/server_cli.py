@@ -1,14 +1,14 @@
 import re
 
-from logging import logmsg
-from server_settings import msg_terminator
+from .logging import logmsg
+from .server_settings import msg_terminator
 
 class CliCmd:
     # the following is a list of valid commands and
     # their corresponding command processors in the CmdProcessors class
     # the following list contains regex patterns used to check inbound API requests
     # and the corresponding cmd processor
-    cli_informat = [
+    cli_format = [
         {'exp': '^M.L$', 'xlat': 'L~', 'by': 'id'},
         {'exp': '^M.LST$', 'xlat': 'L~', 'by': 'id'},
         {'exp': '^M.L +(\\d+)$', 'xlat': 'L{param}~', 'by': 'id'},
@@ -48,15 +48,13 @@ class CliCmd:
 
     def __init__(self, command: str):
 
-        api_format_cmd = ''  # we will return with this value if this isn't a cli command
-
         command = command.replace(msg_terminator, '')
         command = command.strip()
 
-        for entry in self.cli_informat:
+        for entry in self.cli_format:
             # try to match the request
             result = re.findall(entry['exp'], command)
-            if result == []:
+            if not result:
                 continue
             else:
                 self.api_cmd = str(entry['xlat']).format(param=str(result[0]))

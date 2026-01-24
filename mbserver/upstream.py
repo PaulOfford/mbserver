@@ -44,13 +44,14 @@ class UpstreamStore:
         #         os.mkdir(f"{self.posts_dir/")
 
     @staticmethod
-    def get_web_data(url) -> str:
+    def get_web_data(url) -> str | None:
         try:
             page = urllib.request.urlopen(url)
             page_bytes = page.read()
             return page_bytes.decode("utf-8")
-        except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        except (urllib.error.HTTPError, urllib.error.URLError):
             logmsg(1, f"err: Unable to get {url}")
+            return None
 
     def get_new_content(self, starting_at: int):
         post_lst = self.get_web_data(f'{self.posts_url_root}{self.blog}/post.lst')

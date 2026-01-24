@@ -179,10 +179,10 @@ the only website I had available.
 The MbServer operates like this:
 
 1. The @mb Announcement timer expires
-1. MbServer gets the post.lst file from the upstream server
-1. MbServer checks the list in post.lst against its local store to see if there are new posts to get
-1. MbServer gets new posts from the upstream server
-1. MbServer sends the @mb Announcement with the new status
+2. MbServer gets the post.lst file from the upstream server
+3. MbServer checks the list in post.lst against its local store to see if there are new posts to get
+4. MbServer gets new posts from the upstream server
+5. MbServer sends the @mb Announcement with the new status
 
 ### Upstream MbServer
 Future development.
@@ -249,7 +249,7 @@ the overhead would be unacceptable.
 +--------------------------------------------------------------------------------------------------------------+
 |                                                  MESSAGE                                                     |
 +--------------------------------------------------------------------------------------------------------------+
-|                                SEGEMENT                            |                SEGMENT                  |
+|                                SEGMENT                            |                SEGMENT                  |
 +--------------------------------------------------------------------------------------------------------------+
 | CELL * CELL *             total of 36 cells          * CELL * CELL | CELL * CELL * CELL * CELL * CELL * CELL |
 +--------------------------------------------------------------------------------------------------------------+
@@ -271,7 +271,7 @@ Design considerations are:
 * Minimal overhead, bearing in mind the data rates
 * Preferably, stateless operation
 
-So that the sending station can retransmits fragments of a message, protocols like TCP hold a copy of the original
+So that the sending station can retransmit fragments of a message, protocols like TCP hold a copy of the original
 fragments (called _segments_ in TCP) until successful reception has been acknowledged.  To allow the server to be
 stateless, we should avoid the need for such a mechanism.
 

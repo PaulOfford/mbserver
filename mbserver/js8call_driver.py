@@ -3,7 +3,7 @@ import select
 import time
 
 from socket import socket, AF_INET, SOCK_STREAM
-from logging import *
+from .logging import *
 
 
 class Js8CallApi:
@@ -36,6 +36,7 @@ class Js8CallApi:
         self.my_station = station_id
 
     def listen(self):
+        messages = []
         # the following block of code provides a socket recv with a 10-second timeout
         # we need this so that we call the @MB announcement code periodically
         self.sock.setblocking(False)
@@ -47,15 +48,19 @@ class Js8CallApi:
             content = 'Check if announcement needed'
 
         if not content:
-            message = {}
+            messages = []
             self.connected = False
         else:
-            try:
-                message = json.loads(content)
-            except ValueError:
-                message = {}
+            json_docs = content.splitlines()
+            for json_doc in json_docs:
+                try:
+                    message = json.loads(json_doc)
+                except ValueError:
+                    # The message looks corrupt.  Let's stop here.
+                    return messages
+                messages.append(message)
 
-        return message
+        return messages
 
     @staticmethod
     def listen_mock():
@@ -91,7 +96,7 @@ class Js8CallApi:
             else:
                 temp = args[1].split('\n', 1)
                 log_line = temp[0]
-            logmsg(current_log_level, 'omsg: ' + self.my_station + ': ' + log_line)  # console trace of messages sent
+            logmsg(current_log_level, 'TX -> ' + self.my_station + ': ' + log_line)  # console trace of messages sent
 
         message = message.replace('\n\n', '\n \n')  # this seems to help with the JS8Call message window format
         logmsg(2, 'send: ' + message)

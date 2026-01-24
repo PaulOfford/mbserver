@@ -6,7 +6,7 @@
 # Enable TCP Server API
 # Accept TCP Requests
 
-server = ('127.0.0.1', 2442)
+server = ('127.0.0.1', 2443)
 msg_terminator = '♢'
 capabilities = 'LEG'  # for future use
 announce = True
@@ -29,7 +29,7 @@ posts_url_root = ""
 # the posts_dir value must be enclosed in quotes and end with \\
 # the posts_dir value (and hence directory path) can contain spaces
 # prior to version 0.17.0, posts_dir = 'C:\\Development\\microblog\\posts\\'
-posts_dir = ".\\posts\\"
+posts_dir = "posts\\"
 
 lst_limit = 5  # limits the number of posts returned in response to a Listing or Extended Listing command
 replace_nl = False  # if True, \n characters in a post will be replaced with a space character

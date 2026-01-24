@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from server_settings import *
+from .server_settings import *
 
 
 def logmsg(log_level, msg_text):
