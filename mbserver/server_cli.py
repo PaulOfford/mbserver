@@ -1,7 +1,10 @@
 import re
 
-from .logging import logmsg
+from logging import getLogger
 from .server_settings import msg_terminator
+
+logger = getLogger(__name__)
+
 
 class CliCmd:
     # the following is a list of valid commands and
@@ -59,7 +62,7 @@ class CliCmd:
             else:
                 self.api_cmd = str(entry['xlat']).format(param=str(result[0]))
                 self.is_cli = True
-                logmsg(1, f"cli: info: translated {command} to {self.api_cmd}")
+                logger.info(f"cli: info: translated {command} to {self.api_cmd}")
                 break
 
         return

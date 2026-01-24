@@ -8,7 +8,6 @@
 
 server = ('127.0.0.1', 2443)
 msg_terminator = '♢'
-capabilities = 'LEG'  # for future use
 announce = True
 mb_announcement_timer = 60  # in minutes, suggested values are 60, 30 and 15
 

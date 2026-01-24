@@ -16,12 +16,27 @@
 # resulting from the use of the program code.
 
 import os
+from typing import Optional
 
 from .js8call_driver import *
 from .server_api import *
 from .server_cli import *
-from .logging import *
-from .server_settings import lst_limit
+import logging
+
+from .logging_setup import configure_logging
+from .server_settings import (
+    posts_dir,
+    msg_terminator,
+    replace_nl,
+    debug,
+    posts_url_root,
+    announce,
+    mb_announcement_timer,
+    lst_limit,
+    current_log_level,
+)
+
+logger = logging.getLogger(__name__)
 from .upstream import UpstreamStore
 
 
@@ -295,26 +310,26 @@ class MbServer:
         else:
             return None
 
-    def run_server(self, this_blog: str | None):
+    def run_server(self, this_blog: Optional[str]):
         # check the posts directory looks OK
         if not os.path.exists(posts_dir):
-            logmsg(1, "err: Can't find the posts directory")
-            logmsg(1, 'info: Check that the posts_dir value in server_settings.py is correct')
+            logger.info("Can't find the posts directory")
+            logger.info("Check that the posts_dir value in server_settings.py is correct")
             exit(1)
 
         js8call_api = Js8CallApi()
         js8call_api.connect()
 
         js8call_api.send('STATION.GET_CALLSIGN', '')
-        logmsg(2, 'call: STATION.GET_CALLSIGN')
+        logger.info('TX -> : STATION.GET_CALLSIGN')
         if js8call_api.connected:
             messages = js8call_api.listen()
             if len(messages) > 0:
                 for message in messages:
                     typ = message.get('type', '')
+                    logger.info('RX <- : ' + typ)
                     value = message.get('value', '')
                     if typ == 'STATION.CALLSIGN':
-                        logmsg(3, 'resp: ' + value)
                         js8call_api.set_my_station(value)
 
                         # we need to set the blog name
@@ -323,8 +338,8 @@ class MbServer:
                         else:
                             self.this_blog = value  # default blog name is the station callsign
             else:
-                logmsg(1, 'Unable to get My Callsign.')
-                logmsg(1, 'Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
+                logger.info('Unable to get My Callsign.')
+                logger.info('Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
 
         mb_announcement = MbAnnouncement(self.this_blog)
 
@@ -338,7 +353,7 @@ class MbServer:
                         blog_store = UpstreamStore(posts_url_root, posts_dir, self.this_blog)
                         meta = mb_announcement.latest_post_meta()
                         next_post_needed = meta['post_id'] + 1
-                        logmsg(1, "info: Checking central store for new posts")
+                        logger.info("Checking central store for new posts")
                         blog_store.get_new_content(starting_at=next_post_needed)
 
                     mb_announcement.send_mb_announcement(js8call_api)
@@ -351,13 +366,13 @@ class MbServer:
 
                 for message in messages:
                     typ = message.get('type', '')
+                    logger.info('RX -> : ' + typ)
                     value = message.get('value', '')
 
                     if not typ:
                         continue
 
                     elif typ == 'STATION.CALLSIGN':
-                        logmsg(3, 'resp: ' + value)
                         js8call_api.set_my_station(value)
 
                         # we need to set the blog name
@@ -373,7 +388,7 @@ class MbServer:
                         elif message['params']['TO'] == "EA7QTH":
                             rsp_message = self.process(message)
                             if rsp_message:
-                                logmsg(1, 'resp: ' + rsp_message)
+                                logger.info('resp: ' + rsp_message)
                                 # call rsp_message = encode_rad(rsp_message) here - no affect if not rad
                                 # encode_rad should use the cell list held over from the request
                                 js8call_api.send('TX.SEND_MESSAGE', rsp_message)
@@ -383,10 +398,14 @@ class MbServer:
 
 
 def main():
+    # Configure application logging (stdout, UTC timestamps)
+    configure_logging(current_log_level, terminator=msg_terminator)
+
     s = MbServer()
     s.run_server(None)
 
 
 if __name__ == '__main__':
-    logmsg(1, 'info: Microblog Server ' + __version__)
+    configure_logging(current_log_level, terminator=msg_terminator)
+    logger.info("Microblog Server")
     main()

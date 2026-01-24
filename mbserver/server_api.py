@@ -2,8 +2,11 @@ import re
 import time
 import glob
 
-from .server_settings import *
-from .logging import logmsg
+import logging
+
+from .server_settings import lst_limit, posts_dir
+
+logger = logging.getLogger(__name__)
 
 
 # The ApiRequest class is populated with all the information needed by the command processor,
@@ -141,6 +144,6 @@ class ApiRequest:
             self.rc = 103
             self.msg = 'PARAMETER NOT VALID DATE'
 
-        logmsg(1, 'api: info: ' + api_req)  # console trace of messages received
+        logger.info('api: info: ' + api_req)  # console trace of messages received
 
         return self.rc

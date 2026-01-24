@@ -3,7 +3,13 @@ import os
 import urllib.request
 import urllib.error
 import urllib.parse
-from logging import *
+import logging
+
+from typing import Optional
+
+from .logging_setup import TRACE, VERBOSE, level_from_int
+
+logger = logging.getLogger(__name__)
 
 
 class UpstreamStore:
@@ -25,12 +31,12 @@ class UpstreamStore:
         self.posts_dir = dir_root  # remove this line if/when we support multiple blogs on one station
 
         if not os.path.isdir(self.posts_dir_root):
-            logmsg(1, f"conf: Creating posts directory {self.posts_dir}/")
+            logger.info(f"Creating posts directory {self.posts_dir}/")
             os.mkdir(f"{self.posts_dir}/")
             if os.path.isdir(f"{self.posts_dir_root}/"):
                 self.init_rc = 0
             else:
-                logmsg(1, f"conf: Terminating - can't create posts directory {self.posts_dir}/")
+                logger.error(f"Terminating - can't create posts directory {self.posts_dir}/")
                 exit(-1)
         else:
             self.init_rc = 0
@@ -44,13 +50,13 @@ class UpstreamStore:
         #         os.mkdir(f"{self.posts_dir/")
 
     @staticmethod
-    def get_web_data(url) -> str | None:
+    def get_web_data(url) -> Optional[str]:
         try:
             page = urllib.request.urlopen(url)
             page_bytes = page.read()
             return page_bytes.decode("utf-8")
         except (urllib.error.HTTPError, urllib.error.URLError):
-            logmsg(1, f"err: Unable to get {url}")
+            logger.error(f"Unable to get {url}")
             return None
 
     def get_new_content(self, starting_at: int):
@@ -69,7 +75,7 @@ class UpstreamStore:
                     post_text = self.get_web_data(file_url)
                     if post_text:
                         post_text = post_text.replace("\r\n", "\n")
-                        logmsg(1, f"info: Adding new post to the blog store - {file_name}")
+                        logger.info(f"Adding new post to the blog store - {file_name}")
                         f = open(f"{self.posts_dir}/{file_name}", "wt")
                         f.write(post_text)
                         f.close()
