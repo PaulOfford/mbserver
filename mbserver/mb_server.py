@@ -25,23 +25,27 @@ from .server_cli import *
 import logging
 
 from .logging_setup import configure_logging
-from .server_settings import (
-    LOG_LEVEL,
-    LOG_TO_FILE,
-    LOG_FILE,
-    LOG_MAX_BYTES,
-    LOG_BACKUP_COUNT,
-    posts_dir,
-    msg_terminator,
-    replace_nl,
-    posts_url_root,
-    announce,
-    mb_announcement_timer,
-    lst_limit
-)
+from .config import SETTINGS
 from .upstream import UpstreamStore
 
 logger = logging.getLogger(__name__)
+
+# Config (loaded from config.ini at the repo root, next to mbserver.bat)
+server = SETTINGS.server
+posts_dir = SETTINGS.posts_dir
+msg_terminator = SETTINGS.msg_terminator
+replace_nl = SETTINGS.replace_nl
+posts_url_root = SETTINGS.posts_url_root
+announce = SETTINGS.announce
+mb_announcement_timer = SETTINGS.mb_announcement_timer
+lst_limit = SETTINGS.lst_limit
+
+# Logging config
+LOG_LEVEL = SETTINGS.log_level
+LOG_TO_FILE = SETTINGS.log_to_file
+LOG_FILE = SETTINGS.log_file
+LOG_MAX_BYTES = SETTINGS.log_max_bytes
+LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 
 def is_valid_post_file(file_spec: str):
@@ -257,6 +261,7 @@ class MbAnnouncement:
 
             message = f"@MB {meta['post_id']} {compressed_latest_post_date}"
             js8call_api.send('TX.SEND_MESSAGE', message)
+            logger.info("SIG -> : " + message)
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
 
@@ -318,7 +323,7 @@ class MbServer:
         # check the posts directory looks OK
         if not os.path.exists(posts_dir):
             logger.info("Can't find the posts directory")
-            logger.info("Check that the posts_dir value in server_settings.py is correct")
+            logger.info("Check that the posts_dir value in config.ini is correct")
             exit(1)
 
         js8call_api = Js8CallApi()
@@ -407,27 +412,27 @@ def main():
         "--log-file",
         dest="log_file",
         default=None,
-        help="Path to rotating log file. Overrides server_settings.LOG_FILE.",
+        help="Path to rotating log file. Overrides config.ini [logging] log_file.",
     )
     parser.add_argument(
         "--no-log-file",
         dest="no_log_file",
         action="store_true",
-        help="Disable file logging even if enabled in server_settings.py.",
+        help="Disable file logging even if enabled in config.ini.",
     )
     parser.add_argument(
         "--max-log-bytes",
         dest="max_log_bytes",
         type=int,
         default=None,
-        help="Rotate log file after this many bytes. Overrides server_settings.LOG_MAX_BYTES.",
+        help="Rotate log file after this many bytes. Overrides config.ini [logging] log_max_bytes.",
     )
     parser.add_argument(
         "--log-backups",
         dest="log_backups",
         type=int,
         default=None,
-        help="Number of rotated log files to keep. Overrides server_settings.LOG_BACKUP_COUNT.",
+        help="Number of rotated log files to keep. Overrides config.ini [logging] log_backup_count.",
     )
 
     args = parser.parse_args(sys.argv[1:])

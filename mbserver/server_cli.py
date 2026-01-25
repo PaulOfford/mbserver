@@ -1,7 +1,9 @@
 import re
 
 from logging import getLogger
-from .server_settings import msg_terminator
+from .config import SETTINGS
+
+msg_terminator = SETTINGS.msg_terminator
 
 logger = getLogger(__name__)
 

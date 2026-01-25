@@ -49,7 +49,7 @@ to allow for the widest range of normal JS8Call messages.
 An operator can use the standard JS8Call Outgoing Message Area to send the following commands to a microblog server:
 
 * `M.L` - list the five most recent blogs
-  * The range of this list can be changed by changing lst_limit in server_settings.py
+  * The range of this list can be changed by changing lst_limit in config.ini
 * `M.L >n` - list all posts with an id greater than n
 * `M.L yyyy-mm-dd` - list all posts dated yyyy-mm-dd
 * `M.L >yyyy-mm-dd` - list all posts created after yyyy-mm-dd
@@ -165,7 +165,7 @@ The solution has the following characteristics:
 * The blogs are stored as text file with extension of *.txt
 * A text file called post.lst contains a list of all the posts in the store
 
-The root location of the upstream store is defined in server_settings as posts_url_root.  The blog name is appended to
+The root location of the upstream store is defined in config.ini as posts_url_root.  The blog name is appended to
 the root so that multiple blogs can be stored on a single server at the same root location. The construction of a fully
 qualified URL operates like this:
 
@@ -500,7 +500,7 @@ TX.TEXT – Text in the outgoing message window
 
 MbServer uses the Python standard library `logging` module.
 
-Logging configuration lives in **mbserver/server_settings.py**:
+Logging configuration lives in **mbserver/config.ini**:
 
 - `LOG_LEVEL` (e.g. `logging.INFO`, `logging.DEBUG`)
 - `LOG_TO_FILE` (True/False)

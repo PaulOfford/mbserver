@@ -4,7 +4,10 @@ import glob
 
 import logging
 
-from .server_settings import lst_limit, posts_dir
+from .config import SETTINGS
+
+lst_limit = SETTINGS.lst_limit
+posts_dir = SETTINGS.posts_dir
 
 logger = logging.getLogger(__name__)
 
