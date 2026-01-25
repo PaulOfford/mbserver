@@ -18,7 +18,6 @@
 import os
 import sys
 import argparse
-from typing import Optional
 
 from .js8call_driver import *
 from .server_api import *
@@ -35,15 +34,14 @@ from .server_settings import (
     posts_dir,
     msg_terminator,
     replace_nl,
-    debug,
     posts_url_root,
     announce,
     mb_announcement_timer,
     lst_limit
 )
+from .upstream import UpstreamStore
 
 logger = logging.getLogger(__name__)
-from .upstream import UpstreamStore
 
 
 def is_valid_post_file(file_spec: str):
@@ -316,7 +314,7 @@ class MbServer:
         else:
             return None
 
-    def run_server(self, this_blog: Optional[str]):
+    def run_server(self):
         # check the posts directory looks OK
         if not os.path.exists(posts_dir):
             logger.info("Can't find the posts directory")
@@ -337,15 +335,9 @@ class MbServer:
                     value = message.get('value', '')
                     if typ == 'STATION.CALLSIGN':
                         js8call_api.set_my_station(value)
-
-                        # we need to set the blog name
-                        if this_blog:
-                            self.this_blog = this_blog[0]
-                        else:
-                            self.this_blog = value  # default blog name is the station callsign
+                        self.this_blog = value  # blog name is the station callsign
             else:
-                logger.info('Unable to get My Callsign.')
-                logger.info('Check in File -> Settings -> General -> Station -> Station Details -> My Callsign')
+                logger.error('Unable to get my callsign.')
 
         mb_announcement = MbAnnouncement(self.this_blog)
 
@@ -377,15 +369,6 @@ class MbServer:
 
                     if not typ:
                         continue
-
-                    elif typ == 'STATION.CALLSIGN':
-                        js8call_api.set_my_station(value)
-
-                        # we need to set the blog name
-                        if this_blog:
-                            self.this_blog = this_blog
-                        else:
-                            self.this_blog = value  # default blog name is the station callsign
 
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         # if we have received an @MB Q we need to handle differently to commands
@@ -486,8 +469,9 @@ def main():
         console=True,
     )
 
-    s = MbServer()
-    s.run_server(None)
+    srv = MbServer()
+    srv.run_server()
+
     return 0
 
 
