@@ -2,13 +2,16 @@ import re
 import time
 import glob
 
-from server_settings import *
-from logging import logmsg
+import logging
+
+from .server_settings import lst_limit, posts_dir
+
+logger = logging.getLogger(__name__)
 
 
 # The ApiRequest class is populated with all the information needed by the command processor,
 # including the name of the correct command processor.  The key steps in the logic are:
-#  1. match the incoming api_req against the regex expressions in the api_informat list
+#  1. match the incoming api_req against the regex expressions in the api_format list
 #  2. from the matching row, save the proc, op and by values
 #  3. extract post_ids or post_dates, and save them to post_list or date_list
 #  4. convert dates in the date_list from yymdd (api short form) to yyyy-mm-dd (ISO format)
@@ -19,7 +22,7 @@ class ApiRequest:
     # their corresponding command processors in the CmdProcessors class
     # the following list contains regex patterns used to check inbound API requests
     # and the corresponding cmd processor
-    api_informat = [
+    api_format = [
         {'exp': '^L~', 'proc': 'process_mb_lst', 'op': 'tail', 'by': 'id'},
         {'exp': '^L(\\d+,)*\\d+~', 'proc': 'process_mb_lst', 'op': 'eq', 'by': 'id'},
         {'exp': '^LE\\d+~', 'proc': 'process_mb_lst', 'op': 'eq', 'by': 'id'},
@@ -79,7 +82,7 @@ class ApiRequest:
         self.post_list.clear()
         self.date_list.clear()
 
-        for entry in self.api_informat:
+        for entry in self.api_format:
             # try to match the request
             result = re.search(entry['exp'], api_req)
             if result is None:
@@ -141,6 +144,6 @@ class ApiRequest:
             self.rc = 103
             self.msg = 'PARAMETER NOT VALID DATE'
 
-        logmsg(1, 'api: info: ' + api_req)  # console trace of messages received
+        logger.info('REQ <- : ' + api_req)  # console trace of messages received
 
         return self.rc
