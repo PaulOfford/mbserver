@@ -144,6 +144,6 @@ class ApiRequest:
             self.rc = 103
             self.msg = 'PARAMETER NOT VALID DATE'
 
-        logger.info('api: info: ' + api_req)  # console trace of messages received
+        logger.info('REQ <- : ' + api_req)  # console trace of messages received
 
         return self.rc

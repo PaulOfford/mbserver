@@ -33,7 +33,7 @@ class Js8CallApi:
             logger.error('* JS8Call settings check boxes Enable TCP Server API and Accept TCP Requests are checked')
             logger.error('* The API server port number in JS8Call matches the setting in this script'
                          ' - default is 2442')
-            logger.info('info: * There are no firewall rules preventing the connection')
+            logger.info('* There are no firewall rules preventing the connection')
             exit(1)
 
     def set_my_station(self, station_id: str):

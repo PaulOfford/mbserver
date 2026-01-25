@@ -495,3 +495,25 @@ STATION.STATUS – Status of the station
 TX.FRAME – Something we are sending
 
 TX.TEXT – Text in the outgoing message window
+
+## Logging
+
+MbServer uses the Python standard library `logging` module.
+
+Logging configuration lives in **mbserver/server_settings.py**:
+
+- `LOG_LEVEL` (e.g. `logging.INFO`, `logging.DEBUG`)
+- `LOG_TO_FILE` (True/False)
+- `LOG_FILE` (default `logs/mbserver.log`)
+- `LOG_MAX_BYTES` (rotate when file reaches this size)
+- `LOG_BACKUP_COUNT` (how many rotated logs to keep)
+
+### Command-line overrides
+
+You can override logging at runtime:
+
+- `--log-level DEBUG|INFO|WARNING|ERROR|CRITICAL` (or a numeric level)
+- `--log-file /path/to/mbserver.log`
+- `--no-log-file`
+- `--max-log-bytes N`
+- `--log-backups N`

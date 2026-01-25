@@ -7,7 +7,6 @@ import logging
 
 from typing import Optional
 
-from .logging_setup import TRACE, VERBOSE, level_from_int
 
 logger = logging.getLogger(__name__)
 

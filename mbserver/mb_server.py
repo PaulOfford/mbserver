@@ -16,6 +16,8 @@
 # resulting from the use of the program code.
 
 import os
+import sys
+import argparse
 from typing import Optional
 
 from .js8call_driver import *
@@ -25,6 +27,11 @@ import logging
 
 from .logging_setup import configure_logging
 from .server_settings import (
+    LOG_LEVEL,
+    LOG_TO_FILE,
+    LOG_FILE,
+    LOG_MAX_BYTES,
+    LOG_BACKUP_COUNT,
     posts_dir,
     msg_terminator,
     replace_nl,
@@ -32,8 +39,7 @@ from .server_settings import (
     posts_url_root,
     announce,
     mb_announcement_timer,
-    lst_limit,
-    current_log_level,
+    lst_limit
 )
 
 logger = logging.getLogger(__name__)
@@ -366,7 +372,7 @@ class MbServer:
 
                 for message in messages:
                     typ = message.get('type', '')
-                    logger.info('RX -> : ' + typ)
+                    logger.info('RX <- : ' + typ)
                     value = message.get('value', '')
 
                     if not typ:
@@ -388,9 +394,13 @@ class MbServer:
                         elif message['params']['TO'] == "EA7QTH":
                             rsp_message = self.process(message)
                             if rsp_message:
-                                logger.info('resp: ' + rsp_message)
-                                # call rsp_message = encode_rad(rsp_message) here - no affect if not rad
-                                # encode_rad should use the cell list held over from the request
+                                logmsg = re.findall(r"^([\S\s]+~)", rsp_message)
+                                if len(logmsg) > 0:
+                                    logger.info('RSP -> : ' + logmsg[0])
+                                else:
+                                    logger.info('RSP -> : ' + rsp_message)
+
+                                # Time to send the response.
                                 js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
         finally:
@@ -398,14 +408,88 @@ class MbServer:
 
 
 def main():
-    # Configure application logging (stdout, UTC timestamps)
-    configure_logging(current_log_level, terminator=msg_terminator)
+    """Application entry point.
+
+    Supports optional CLI flags to override logging configuration.
+    """
+
+    parser = argparse.ArgumentParser(prog="mbserver", add_help=True)
+    parser.add_argument(
+        "--log-level",
+        dest="log_level",
+        default=None,
+        help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL or numeric).",
+    )
+    parser.add_argument(
+        "--log-file",
+        dest="log_file",
+        default=None,
+        help="Path to rotating log file. Overrides server_settings.LOG_FILE.",
+    )
+    parser.add_argument(
+        "--no-log-file",
+        dest="no_log_file",
+        action="store_true",
+        help="Disable file logging even if enabled in server_settings.py.",
+    )
+    parser.add_argument(
+        "--max-log-bytes",
+        dest="max_log_bytes",
+        type=int,
+        default=None,
+        help="Rotate log file after this many bytes. Overrides server_settings.LOG_MAX_BYTES.",
+    )
+    parser.add_argument(
+        "--log-backups",
+        dest="log_backups",
+        type=int,
+        default=None,
+        help="Number of rotated log files to keep. Overrides server_settings.LOG_BACKUP_COUNT.",
+    )
+
+    args = parser.parse_args(sys.argv[1:])
+
+    def _parse_level(v: str) -> int:
+        if v is None:
+            return int(LOG_LEVEL)
+        s = str(v).strip()
+        if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+            return int(s)
+        name = s.upper()
+        if not hasattr(logging, name):
+            raise SystemExit(f"Invalid --log-level: {v}")
+        lvl = getattr(logging, name)
+        if not isinstance(lvl, int):
+            raise SystemExit(f"Invalid --log-level: {v}")
+        return int(lvl)
+
+    level = _parse_level(args.log_level)
+
+    # Decide file logging
+    if args.no_log_file:
+        log_file = None
+    elif args.log_file is not None:
+        log_file = args.log_file
+    else:
+        log_file = LOG_FILE if LOG_TO_FILE else None
+
+    max_bytes = int(args.max_log_bytes) if args.max_log_bytes is not None else int(LOG_MAX_BYTES)
+    backup_count = int(args.log_backups) if args.log_backups is not None else int(LOG_BACKUP_COUNT)
+
+    # Configure application logging (console + optional rotating file, UTC timestamps)
+    configure_logging(
+        level=level,
+        terminator=msg_terminator,
+        log_file=log_file,
+        max_bytes=max_bytes,
+        backup_count=backup_count,
+        console=True,
+    )
 
     s = MbServer()
     s.run_server(None)
+    return 0
 
 
 if __name__ == '__main__':
-    configure_logging(current_log_level, terminator=msg_terminator)
-    logger.info("Microblog Server")
-    main()
+    raise SystemExit(main())

@@ -11,11 +11,6 @@ msg_terminator = '♢'
 announce = True
 mb_announcement_timer = 60  # in minutes, suggested values are 60, 30 and 15
 
-# current_log_level = 0  # no logging
-current_log_level = 1  # normal logging
-# current_log_level = 2  # verbose logging
-# current_log_level = 3  # debug level logging
-# current_log_level = 4  # verbose debug level logging
 
 # posts_url_root defines the location of a central blog store that can be used when there is an Internet connection
 # this is work in progress
@@ -37,3 +32,23 @@ replace_nl = False  # if True, \n characters in a post will be replaced with a s
 debug = False  # set to True to tests with simulated messages set in debug_json
 
 #######################################################################################################
+
+# Logging
+import logging
+
+# Standard library logging configuration.
+#
+# Set LOG_LEVEL to one of:
+#   logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR, logging.CRITICAL
+LOG_LEVEL = logging.INFO
+
+# Log to a rotating file as well as console.
+# Set LOG_TO_FILE=False to disable file logging.
+LOG_TO_FILE = True
+
+# Default log file path (created if missing). Use a relative path to keep things portable.
+LOG_FILE = "logs/mbserver.log"
+
+# Rotate when the log reaches this size (bytes), keeping LOG_BACKUP_COUNT old files.
+LOG_MAX_BYTES = 5_000_000
+LOG_BACKUP_COUNT = 5
