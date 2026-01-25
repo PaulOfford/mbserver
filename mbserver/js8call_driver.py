@@ -5,7 +5,9 @@ import time
 from socket import socket, AF_INET, SOCK_STREAM
 from logging import getLogger
 
-from .server_settings import server
+from .config import SETTINGS
+
+server = SETTINGS.server
 
 logger = getLogger(__name__)
 
