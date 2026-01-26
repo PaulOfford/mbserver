@@ -56,11 +56,11 @@ An operator can use the standard JS8Call Outgoing Message Area to send the follo
 * `M.E` - as per M.L but with list entries that include the date of the post
 * `M.E >n` - as per M.L but with list entries that include the date of the post
 * `M.E yyyy-mm-dd` - as per M.L but with list entries that include the date of the post
-* `M.E >yyyy-mm-dd` - as per M.L but with list entries that include the date of the post
 * `M.G n` - get the post with the id n
 
 M.LST, M.EXT and M.GET are no longer supported.  The MB.xxx form has also been dropped to reduce the
-amount of code to maintain.
+amount of code to maintain.  All M.L commands are deprecated to M.E; in other words if the server
+receives an M.L command it will translate it to an M.E command.
 
 Earlier versions of the CLI included a CLI parser and parameter checking.  Revision 9 included a
 significant rewrite of the CLI such that the CLI now just translates requests into the API form and
@@ -69,41 +69,17 @@ checking is done in the API.  This provides better code layering and reduces the
 ### Application Program Interface (API)
 Command formats are as follows:
 
-* `L~` - return a list the most recent posts on the server
-  * e.g. `L~`
-* `Lx,y,z~` - return a list of posts with post IDs x, y and z
-  * e.g. `L24,25,26~`
-  * e.g. `L24,27,28~`
-* `Ln~` - return a list of posts with the post id n, i.e. just one line
-  * e.g. `L405~`
-* `LEn~` - return a list of posts with the post id n, i.e. just one line
-  * e.g. `LE405~`
-  * This format is deprecated in favour of the Ln~ form
-* `MEyymdd~` - return a list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
-  * e.g. `ME22C25~`
-* `LGn~` - return a list of all posts starting with an id greater than n
-  * e.g. `LG405~`
-* `MGyymdd~` - return a list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
-  * e.g. `MG22C25~`
-* `E~` - return an extended list of the most recent posts on the server
+* `E~` - return a listing of the five most recent posts on the server
   * e.g. `E~`
-  * This format is deprecated in favour of the En~ form
-* `Ex,y,z~` - return an extended list of posts with post IDs x, y and z
+* `En~` - return a listing for the post id n
+  * e.g. `E405~`
+* `Ex,y,z~` - return a listing for posts with post IDs x, y and z
   * e.g. `E24,25,26~`
   * e.g. `E24,27,28~`
-* `En~` - return an extended list of posts with the post id n, i.e. just one line
-  * e.g. `E405~`
-  * This format is deprecated in favour of the En~ form
-* `EEn~` - return an extended list of posts with the post id n, i.e. just one line
-  * e.g. `EE405~`
-* `FEyymdd~` - return an extended list of posts created on the date yy-m-dd where m is 1 to 9 then A, B & C
-  * e.g. `FE22C25~`
-* `EGn~` - return an extended format list of all posts starting with an id greater than n; n can be 0 to 200000
-  * e.g. `EG405~`
-* `FGyymdd~` - return an extended format list of all posts created after yy-m-dd where m is 1 to 9 then A, B & C
-  * e.g. `FG22C25~`
-* `GEn~` - return the content of the post with the id n
-  * e.g. `GE412~`
+* `Eyyyy-mm-dd~` - return a listing for posts with post date of yyyy-mm-dd
+  * e.g. `E2026-01-25~`
+* `Gn~` - return the content of post id n
+  * e.g. `G405~`
 
 ## MB Server Announcement
 The server can send an announcement to the @MB call group.  An announcement contains the ID of the latest post.

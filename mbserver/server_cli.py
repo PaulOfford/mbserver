@@ -14,38 +14,18 @@ class CliCmd:
     # the following list contains regex patterns used to check inbound API requests
     # and the corresponding cmd processor
     cli_format = [
-        {'exp': '^M.L$', 'xlat': 'L~', 'by': 'id'},
-        {'exp': '^M.LST$', 'xlat': 'L~', 'by': 'id'},
-        {'exp': '^M.L +(\\d+)$', 'xlat': 'L{param}~', 'by': 'id'},
-        {'exp': '^M.LST +(\\d+)$', 'xlat': 'L{param}~', 'by': 'id'},
-        {'exp': '^M.L +> *(\\d+)$', 'xlat': 'LG{param}~', 'by': 'id'},
-        {'exp': '^M.LST +> *(\\d+)$', 'xlat': 'LG{param}~', 'by': 'id'},
         {'exp': '^M.E$', 'xlat': 'E~', 'by': 'id'},
-        {'exp': '^M.EXT$', 'xlat': 'E~', 'by': 'id'},
         {'exp': '^M.E +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
-        {'exp': '^M.EXT +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
-        {'exp': '^M.E +> *(\\d+)$', 'xlat': 'EG{param}~', 'by': 'id'},
-        {'exp': '^M.EXT +> *(\\d+)$', 'xlat': 'EG{param}~', 'by': 'id'},
-
-        {'exp': '^M.L +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'L{param}~', 'by': 'date'},
-        {'exp': '^M.LST +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'L{param}~', 'by': 'date'},
-        {'exp': '^M.L +> *(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'MG{param}~', 'by': 'date'},
-        {'exp': '^M.LST +> *(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'MG{param}~', 'by': 'date'},
-
         {'exp': '^M.E +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
-        {'exp': '^M.EXT +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
-        {'exp': '^M.E +> *(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'FG{param}~', 'by': 'date'},
-        {'exp': '^M.EXT +> *(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'FG{param}~', 'by': 'date'},
 
         {'exp': '^M.G +(\\d+)$', 'xlat': 'G{param}~', 'by': 'id'},
-        {'exp': '^M.GET +(\\d+)$', 'xlat': 'G{param}~', 'by': 'id'},
 
-        # although the following is invalid, we need to pass it through to the API parser so
-        # the used gets an appropriate error message
-        {'exp': '^M.G +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'G{param}~', 'by': 'id'},
-        {'exp': '^M.GET +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'G{param}~', 'by': 'id'},
+        {'exp': '^M.WX$', 'xlat': 'G0~', 'by': 'id'},
 
-        {'exp': '^M.WX$', 'xlat': 'WX~', 'by': 'id'},
+        # The following commands are deprecated and now return extended listings.
+        {'exp': '^M.L$', 'xlat': 'E~', 'by': 'id'},
+        {'exp': '^M.L +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
+        {'exp': '^M.L +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
     ]
 
     is_cli = False
@@ -61,10 +41,12 @@ class CliCmd:
             result = re.findall(entry['exp'], command)
             if not result:
                 continue
-            else:
-                self.api_cmd = str(entry['xlat']).format(param=str(result[0]))
-                self.is_cli = True
-                logger.info(f"cli: info: translated {command} to {self.api_cmd}")
-                break
+
+            # ToDo: We need to add code here to handle invalid commands
+
+            self.api_cmd = str(entry['xlat']).format(param=str(result[0]))
+            self.is_cli = True
+            logger.info(f"Translated {command} to {self.api_cmd}")
+            break
 
         return
