@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from .config import SETTINGS
+from .server_cli import cli_translate
 
 lst_limit = SETTINGS.lst_limit
 posts_dir = SETTINGS.posts_dir
@@ -10,27 +11,40 @@ posts_dir = SETTINGS.posts_dir
 logger = logging.getLogger(__name__)
 
 
-def api_get_ids_for_date(req: dict) -> list:
+def api_get_ids_for_date(date: str) -> list:
     # The request looks like this {'cmd': api_request, 'verb': 'LIST', 'by': 'DATE', 'date': date}
     id_list = []
 
-    file_list = sorted(Path(posts_dir).glob(f"*{req['date']}*.txt"), reverse=True)
+    file_list = sorted(Path(posts_dir).glob(f"*{date}*.txt"), reverse=True)
     file_names = [f.name for f in file_list]
 
     for fn in file_names:
-        id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
-        if id:
-            id_list.append(id)
+        post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
+        if post_id:
+            id_list.append(post_id)
 
     return id_list
 
 
-def api_get_ids_for_recent(req: dict) -> dict:
+def api_get_ids_for_recent() -> list:
     # The request looks like this {'cmd': api_request, 'verb': 'LIST', 'by': 'ID', 'id_list': []]}
-    return {}
+    id_list = []
+
+    file_list = sorted(Path(posts_dir).glob(f"*.txt"), reverse=True)
+    file_names = [f.name for f in file_list]
+
+    for i, fn in enumerate(file_names):
+        if i >= lst_limit:
+            break
+
+        post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
+        if post_id:
+            id_list.append(post_id)
+
+    return id_list
 
 
-def api_parse_list(api_request: str, match: dict):
+def api_parse_list(api_request: str, match: dict) -> dict:
     # {'cmd': 'E~', 'verb': 'LIST', 'by': 'ID', 'id_list': []}  -> lists the most recent
     # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
     # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
@@ -64,7 +78,7 @@ def api_parse_list(api_request: str, match: dict):
     return {}
 
 
-def api_parse_get(api_request: str, match: dict) -> dict:
+def api_parse_get(api_request: str) -> dict:
     # {'cmd': 'G12~', 'verb': 'GET', 'post_id': 6}  -> get #12
     post_id_list = list(map(int, re.findall(r'\d+', api_request)))
 
@@ -96,6 +110,8 @@ def api_parse_req(api_req: str) -> dict:
 
         {'exp': r'^G\d+~', 'verb': 'GET', 'by': 'ID'},
     ]
+
+    req_dict = {}
     
     for entry in api_format:
         # try to match the request
@@ -104,19 +120,41 @@ def api_parse_req(api_req: str) -> dict:
             continue
 
         if entry['verb'] == 'LIST':
-            return api_parse_list(api_req, entry)
+            req_dict = api_parse_list(api_req, entry)
         elif entry['verb'] == 'GET':
-            return api_parse_get(api_req, entry)
+            req_dict = api_parse_get(api_req)
 
+    return req_dict
 
-def api_get_req_structure(api_req: str) -> dict:
-    logger.info('REQ <- : ' + api_req)  # console trace of messages received
+def api_get_req_components(req: str) -> dict:
+    components = re.findall(r'^([A-Z0-9]+): *([A-Z0-9]+) *(\S*)$', req)[0]
+    return {
+        'source': components[0],
+        'destination': components[1],
+        'cmd': components[2],
+    }
 
-    req_dict = api_parse_req(api_req)
+def api_get_req_structure(req: str) -> dict:
+    # req is in the format _source_: _destination_ _mb_cmd_
+
+    logger.info('REQ <- : ' + req)  # console trace of messages received
+
+    components = api_get_req_components(req)
+    client = components['source']
+    cmd = components['cmd']
+
+    if cmd[:2] == 'M.':
+        # This is a CLI command that we need to translate to an api command
+        cmd = cli_translate(cmd)
+
+    req_dict = api_parse_req(cmd)
     
     if req_dict['by'] == 'DATE':
-        req_dict = api_get_ids_for_date(req_dict)
+        id_list = api_get_ids_for_date(req_dict['date'])
+        req_dict['id_list'] = id_list
+
     if req_dict['by'] == 'ID' and len(req_dict['id_list']) == 0:
-        req_dict = api_get_ids_for_recent(req_dict)
+        id_list = api_get_ids_for_recent()
+        req_dict['id_list'] = id_list
         
     return req_dict

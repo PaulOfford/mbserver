@@ -8,7 +8,7 @@ msg_terminator = SETTINGS.msg_terminator
 logger = getLogger(__name__)
 
 
-class CliCmd:
+def cli_translate(command: str) -> str:
     # the following is a list of valid commands and
     # their corresponding command processors in the CmdProcessors class
     # the following list contains regex patterns used to check inbound API requests
@@ -28,25 +28,21 @@ class CliCmd:
         {'exp': '^M.L +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
     ]
 
-    is_cli = False
-    api_cmd = ''
+    translated_command = ""
 
-    def __init__(self, command: str):
+    command = command.replace(msg_terminator, '')
+    command = command.strip()
 
-        command = command.replace(msg_terminator, '')
-        command = command.strip()
+    for entry in cli_format:
+        # try to match the request
+        result = re.findall(entry['exp'], command)
+        if not result:
+            continue
 
-        for entry in self.cli_format:
-            # try to match the request
-            result = re.findall(entry['exp'], command)
-            if not result:
-                continue
+        # ToDo: We need to add code here to handle invalid commands
 
-            # ToDo: We need to add code here to handle invalid commands
+        translated_command = str(entry['xlat']).format(param=str(result[0]))
+        logger.info(f"Translated {command} to {translated_command}")
+        break
 
-            self.api_cmd = str(entry['xlat']).format(param=str(result[0]))
-            self.is_cli = True
-            logger.info(f"Translated {command} to {self.api_cmd}")
-            break
-
-        return
+    return translated_command
