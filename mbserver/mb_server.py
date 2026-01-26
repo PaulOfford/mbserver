@@ -78,7 +78,8 @@ class CmdProcessors:
             file_list = sorted(Path(posts_dir).glob(f"{post_id_str}*.txt"), reverse=True)
             file_name = [f.name for f in file_list]
             if len(file_name) > 0:
-                list_of_posts.append(file_name[0])
+                list_entry = re.findall(r"^([\S\s]+).txt", file_name[0])[0]
+                list_of_posts.append(list_entry)
 
         if len(list_of_posts) == 0:
             return 'NO POSTS FOUND'
@@ -106,15 +107,22 @@ class CmdProcessors:
 
     def verb_get(self, req: dict) -> str:
         # The req structure will look like this:
-        # {'cmd': 'G12~', 'verb': 'GET', 'post_id': 12}  -> get #12
+        # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
+
+        current_dir = os.getcwd()
 
         success = '-'  # Assume the worst.
         post_content = 'POST NOT FOUND'
 
-        file_path_name = sorted(Path(posts_dir).glob(f"{req['post_id']}*.txt"), reverse=True)[0]
+        # ToDo: The following line doesn't work if an absolute address is set in posts_dir
+        adj_posts_dir = f"{current_dir}\\{posts_dir}"
 
-        if file_path_name.exists():
-            post_content = self.get_post_content(file_path_name)
+        file_search = f"{req['id_list'][0]:04d}*.txt"
+
+        file_path_name = sorted(Path(adj_posts_dir).glob(file_search), reverse=True)
+
+        if len(file_path_name) > 0:
+            post_content = self.get_post_content(file_path_name[0])
 
         if post_content:
             # We can give a positive response.
@@ -199,7 +207,7 @@ class MbServer:
         # The req structure will look like one of these
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
         # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
-        # {'cmd': 'G12~', 'verb': 'GET', 'post_id': 12}  -> get #12
+        # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
 
         p = CmdProcessors()
 
@@ -277,7 +285,7 @@ class MbServer:
                             mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
 
                         elif message['params']['TO'] == self.this_blog:
-                            rsp_message = self.process(message)
+                            rsp_message = f"{message['params']['FROM']} {self.process(message)}"
                             if rsp_message:
                                 log_msg = re.findall(r"^([\S\s]+~)", rsp_message)
                                 if len(log_msg) > 0:
@@ -289,7 +297,7 @@ class MbServer:
                                 js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
                         else:
-                            logger.info('REQ not for me <- : ' + message)
+                            logger.info('REQ not for me <- : ' + value)
 
         finally:
             js8call_api.close()
