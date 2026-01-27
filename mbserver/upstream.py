@@ -7,46 +7,29 @@ import logging
 
 from typing import Optional
 
+from .config import SETTINGS
 
 logger = logging.getLogger(__name__)
 
-
 class UpstreamStore:
     posts_url_root = ""
-    posts_url = ""
-    posts_dir_root = ""
     posts_dir = ""
-    blog = ""
     init_rc = -1  # default to bad
 
-    def __init__(self, url_root, dir_root, blog):
-        self.blog = blog
+    def __init__(self):
+        self.posts_url_root = SETTINGS.posts_url_root
+        self.posts_dir = SETTINGS.posts_dir
 
-        self.posts_url_root = url_root
-        self.posts_url = f"{self.posts_url_root}{self.blog}"
-
-        self.posts_dir_root = dir_root
-        self.posts_dir = f"{self.posts_dir_root}{self.blog}"
-        self.posts_dir = dir_root  # remove this line if/when we support multiple blogs on one station
-
-        if not os.path.isdir(self.posts_dir_root):
+        if not os.path.isdir(self.posts_dir):
             logger.info(f"Creating posts directory {self.posts_dir}/")
             os.mkdir(f"{self.posts_dir}/")
-            if os.path.isdir(f"{self.posts_dir_root}/"):
+            if os.path.isdir(f"{self.posts_dir}/"):
                 self.init_rc = 0
             else:
                 logger.error(f"Terminating - can't create posts directory {self.posts_dir}/")
                 exit(-1)
         else:
             self.init_rc = 0
-
-        # The following code is for future use if we enable running multiple blogs on a single station
-        #
-        # if os.path.isdir(self.posts_dir_root):
-        #     if os.path.isdir(f"{self.posts_dir}/"):
-        #         self.init_rc = 0
-        #     else:
-        #         os.mkdir(f"{self.posts_dir/")
 
     @staticmethod
     def get_web_data(url) -> Optional[str]:
@@ -59,7 +42,7 @@ class UpstreamStore:
             return None
 
     def get_new_content(self, starting_at: int):
-        post_lst = self.get_web_data(f'{self.posts_url_root}{self.blog}/post.lst')
+        post_lst = self.get_web_data(f'{self.posts_url_root}/post.lst')
         if post_lst:
             entries = re.findall(r"(\d+) - ([ .A-Za-z0-9\-]+)\r\n", post_lst)
             # print(entries)
@@ -70,10 +53,11 @@ class UpstreamStore:
                 else:
                     file_name = f"{entry[0]} - {entry[1]}"
                     enc_fn = urllib.parse.quote(file_name)
-                    file_url = f"{self.posts_url_root}{self.blog}/{enc_fn}"
+                    file_url = f"{self.posts_url_root}/{enc_fn}"
                     post_text = self.get_web_data(file_url)
                     if post_text:
                         post_text = post_text.replace("\r\n", "\n")
+                        post_text = post_text.strip()
                         logger.info(f"Adding new post to the blog store - {file_name}")
                         f = open(f"{self.posts_dir}/{file_name}", "wt")
                         f.write(post_text)
