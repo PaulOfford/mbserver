@@ -96,7 +96,7 @@ class CmdProcessors:
         listing = self.list_posts(req)
         if listing == 'NO POSTS FOUND':
             success = '-'
-        return f"{success}{req['cmd']} {listing}"
+        return f"{success}{req['cmd']}\n{listing}"
 
     @staticmethod
     def get_post_content(filename):
@@ -128,7 +128,7 @@ class CmdProcessors:
             if replace_nl:
                 post_content = post_content.replace('\n', ' ')  # temp code until NL fixed
 
-        return f"{success}{req['cmd']} {post_content}"
+        return f"{success}{req['cmd']}\n{post_content}"
 
 
 class MbAnnouncement:

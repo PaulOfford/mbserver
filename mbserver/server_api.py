@@ -127,7 +127,7 @@ def api_parse_req(api_req: str) -> dict:
     return req_dict
 
 def api_get_req_components(req: str) -> dict:
-    components = re.findall(r'^([A-Z0-9]+): *([A-Z0-9]+) *(\S*)$', req)[0]
+    components = re.findall(r'^([A-Z0-9]+): *([A-Z0-9]+) *([\S ]*)$', req)[0]
     return {
         'source': components[0],
         'destination': components[1],
