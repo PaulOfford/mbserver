@@ -272,7 +272,7 @@ class MbServer:
 
                 for message in messages:
                     typ = message.get('type', '')
-                    logger.info('RX <- : ' + typ)
+                    logger.debug('RX <- : ' + typ)
                     value = message.get('value', '')
 
                     if not typ:
@@ -281,6 +281,7 @@ class MbServer:
                     elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
                         # if we have received an @MB Q we need to handle differently to commands
                         if re.search(r"^\S+: @MB\s+Q", value):
+                            logger.info('RX <- : ' + value)
                             mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
 
                         elif message['params']['TO'] == self.this_blog:
