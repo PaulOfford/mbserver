@@ -256,7 +256,7 @@ class MbServer:
                 if mb_announcement.is_announcement_needed():
                     # refresh the blog with new posts
                     if posts_url_root:
-                        blog_store = UpstreamStore(posts_url_root, posts_dir, self.this_blog)
+                        blog_store = UpstreamStore()
                         meta = mb_announcement.latest_post_meta()
                         next_post_needed = meta['post_id'] + 1
                         logger.info("Checking central store for new posts")

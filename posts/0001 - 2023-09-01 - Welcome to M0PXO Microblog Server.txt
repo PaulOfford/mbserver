@@ -1,1 +1,0 @@
-Microblogging enables the sharing of information over JS8. A microblog can serve any information, but is envisioned as a way of providing useful information in a disaster situation. See Microblogging User Guide on YouTube.
