@@ -109,17 +109,12 @@ class CmdProcessors:
         # The req structure will look like this:
         # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
 
-        current_dir = os.getcwd()
-
         success = '-'  # Assume the worst.
         post_content = 'POST NOT FOUND'
 
-        # ToDo: The following line doesn't work if an absolute address is set in posts_dir
-        adj_posts_dir = f"{current_dir}\\{posts_dir}"
-
         file_search = f"{req['id_list'][0]:04d}*.txt"
 
-        file_path_name = sorted(Path(adj_posts_dir).glob(file_search), reverse=True)
+        file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)
 
         if len(file_path_name) > 0:
             post_content = self.get_post_content(file_path_name[0])
@@ -204,6 +199,10 @@ class MbServer:
         # mb_req is in the format _source_: _destination_ _mb_cmd_
         req = api_get_req_structure(mb_req)  # Go get a structured request
 
+        if req == {}:
+            logger.info('Not an MB request <- : ' + js8call_msg.get('value', ''))
+            return None
+
         # The req structure will look like one of these
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
         # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
@@ -285,16 +284,21 @@ class MbServer:
                             mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
 
                         elif message['params']['TO'] == self.this_blog:
-                            rsp_message = f"{message['params']['FROM']} {self.process(message)}"
-                            if rsp_message:
-                                log_msg = re.findall(r"^([\S\s]+~)", rsp_message)
-                                if len(log_msg) > 0:
-                                    logger.info('RSP -> : ' + log_msg[0])
-                                else:
-                                    logger.info('RSP -> : ' + rsp_message)
+                            rsp = self.process(message)
 
-                                # Time to send the response.
-                                js8call_api.send('TX.SEND_MESSAGE', rsp_message)
+                            if not rsp:
+                                continue
+
+                            rsp_message = f"{message['params']['FROM']} {rsp}"
+
+                            log_msg = re.findall(r"^([\S\s]+~)", rsp_message)
+                            if len(log_msg) > 0:
+                                logger.info('RSP -> : ' + log_msg[0])
+                            else:
+                                logger.info('RSP -> : ' + rsp_message)
+
+                            # Time to send the response.
+                            js8call_api.send('TX.SEND_MESSAGE', rsp_message)
 
                         else:
                             logger.info('REQ not for me <- : ' + value)

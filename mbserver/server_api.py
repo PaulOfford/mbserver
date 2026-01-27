@@ -21,7 +21,7 @@ def api_get_ids_for_date(date: str) -> list:
     for fn in file_names:
         post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
         if post_id:
-            id_list.append(post_id)
+            id_list.append(int(post_id))
 
     return id_list
 
@@ -39,7 +39,7 @@ def api_get_ids_for_recent() -> list:
 
         post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
         if post_id:
-            id_list.append(post_id)
+            id_list.append(int(post_id))
 
     return id_list
 
@@ -140,7 +140,7 @@ def api_get_req_structure(req: str) -> dict:
     logger.info('REQ <- : ' + req)  # console trace of messages received
 
     components = api_get_req_components(req)
-    client = components['source']
+    # client = components['source']  # No using this line at the moment
     cmd = components['cmd']
 
     if cmd[:2] == 'M.':
@@ -148,6 +148,9 @@ def api_get_req_structure(req: str) -> dict:
         cmd = cli_translate(cmd)
 
     req_dict = api_parse_req(cmd)
+
+    if req_dict == {}:
+        return req_dict
     
     if req_dict['by'] == 'DATE':
         id_list = api_get_ids_for_date(req_dict['date'])
