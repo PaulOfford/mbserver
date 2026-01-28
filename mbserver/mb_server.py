@@ -51,7 +51,7 @@ LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 
 def send_to_comms(m: UnifiedMessage):
-    logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+    logger.debug(f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
     b2c_q.put(m)
 
 
@@ -222,10 +222,12 @@ class MbServer:
         clean = value.replace('  ', ' ')  # remove double spaces
         return clean
 
-    def process(self, m: UnifiedMessage):
+    def process(self, m: UnifiedMessage) -> Optional[UnifiedMessage]:
         mb_rsp = ''
 
         mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
+
+        logger.info('REQ <- : ' + mb_req)  # console trace of messages received
 
         if mb_req == 'Q':
             self.mb_announcement.next_announcement = 0
@@ -251,7 +253,22 @@ class MbServer:
 
 
         if len(mb_rsp) > 0:
-            return mb_rsp.upper()
+
+            m_out = UnifiedMessage(
+                target=MessageTarget.COMMS,
+                typ=MessageType.MB_MSG,
+                verb=MessageVerb.SEND,
+                params={
+                    MessageParameter.DESTINATION: m.get_param(MessageParameter.SOURCE),
+                    MessageParameter.MB_MSG: mb_rsp
+                }
+            )
+
+            log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
+            logger.info(f"RSP -> : +{log_msg}")
+
+            return m_out
+
         else:
             return None
 
@@ -261,18 +278,6 @@ class MbServer:
             logger.info("Can't find the posts directory")
             logger.info("Check that the posts_dir value in config.ini is correct")
             exit(1)
-
-        # m = UnifiedMessage(
-        #     target=MessageTarget.COMMS,
-        #     typ=MessageType.MB_MSG,
-        #     verb=MessageVerb.SEND,
-        #     params={
-        #         MessageParameter.DESTINATION: "@MB",
-        #         MessageParameter.MB_MSG: "Q"
-        #     }
-        # )
-        #
-        # logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
 
         while True:
             try:  # To catch a KeyboardInterrupt
@@ -295,7 +300,9 @@ class MbServer:
                         continue
 
                     elif m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.INFORM:
-                        self.process(m)
+                        m = self.process(m)
+                        if m is not None:
+                            send_to_comms(m)
 
                     c2b_q.task_done()
 
