@@ -177,7 +177,7 @@ class MbAnnouncement:
             # compress the date from yyyy-mm-dd into yymmdd
             compressed_latest_post_date = meta['post_date'].replace('-', '')[2:]
 
-            message = f"@MB {meta['post_id']} {compressed_latest_post_date}"
+            message = f"{meta['post_id']} {compressed_latest_post_date}"
 
             m = UnifiedMessage(
                 target=MessageTarget.COMMS,
@@ -301,6 +301,9 @@ class MbServer:
 
                 except queue.Empty:
                     pass
+
+                if self.this_blog == '':
+                    continue
 
                 if self.mb_announcement.is_announcement_needed():
                     # refresh the blog with new posts
