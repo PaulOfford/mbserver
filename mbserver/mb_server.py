@@ -15,6 +15,7 @@
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
 
+import threading
 import os
 import sys
 import argparse
@@ -27,6 +28,7 @@ import logging
 from .logging_setup import configure_logging
 from .config import SETTINGS
 from .upstream import UpstreamStore
+from .message_q import *
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,11 @@ LOG_TO_FILE = SETTINGS.log_to_file
 LOG_FILE = SETTINGS.log_file
 LOG_MAX_BYTES = SETTINGS.log_max_bytes
 LOG_BACKUP_COUNT = SETTINGS.log_backup_count
+
+
+def send_to_comms(m: UnifiedMessage):
+    logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+    b2c_q.put(m)
 
 
 def is_valid_post_file(file_spec: str):
@@ -161,7 +168,7 @@ class MbAnnouncement:
         else:
             return False
 
-    def send_mb_announcement(self, js8call_api: Js8CallApi):
+    def send_mb_announcement(self):
         # get the current epoch
         epoch = time.time()
         if epoch > self.next_announcement:
@@ -171,16 +178,40 @@ class MbAnnouncement:
             compressed_latest_post_date = meta['post_date'].replace('-', '')[2:]
 
             message = f"@MB {meta['post_id']} {compressed_latest_post_date}"
-            js8call_api.send('TX.SEND_MESSAGE', message)
-            logger.info("SIG -> : " + message)
+
+            m = UnifiedMessage(
+                target=MessageTarget.COMMS,
+                typ=MessageType.MB_MSG,
+                verb=MessageVerb.SEND,
+                params={
+                    MessageParameter.DESTINATION: "@MB",
+                    MessageParameter.MB_MSG: message
+                }
+            )
+
+            logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
+
+            send_to_comms(m)
 
 
 class MbServer:
 
     this_blog = ''
     request = None
+    mb_announcement = None
+
+    def __init__(self):
+        comms = Js8CallDriver()
+        self.comms_t = threading.Thread(target=comms.run_comms)
+        self.comms_t.start()
+
+    @staticmethod
+    def send_to_comms(m: UnifiedMessage):
+        logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
+        b2c_q.put(m)
 
     @staticmethod
     def tidy(messy: str) -> str:
@@ -191,16 +222,19 @@ class MbServer:
         clean = value.replace('  ', ' ')  # remove double spaces
         return clean
 
-    def process(self, js8call_msg: dict):
+    def process(self, m: UnifiedMessage):
         mb_rsp = ''
 
-        mb_req = self.tidy(js8call_msg.get('value', ''))
+        mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
+
+        if mb_req == 'Q':
+            self.mb_announcement.next_announcement = 0
 
         # mb_req is in the format _source_: _destination_ _mb_cmd_
         req = api_get_req_structure(mb_req)  # Go get a structured request
 
         if req == {}:
-            logger.info('Not an MB request <- : ' + js8call_msg.get('value', ''))
+            logger.info('Not an MB request <- : ' + mb_req)
             return None
 
         # The req structure will look like one of these
@@ -228,84 +262,60 @@ class MbServer:
             logger.info("Check that the posts_dir value in config.ini is correct")
             exit(1)
 
-        js8call_api = Js8CallApi()
-        js8call_api.connect()
+        # m = UnifiedMessage(
+        #     target=MessageTarget.COMMS,
+        #     typ=MessageType.MB_MSG,
+        #     verb=MessageVerb.SEND,
+        #     params={
+        #         MessageParameter.DESTINATION: "@MB",
+        #         MessageParameter.MB_MSG: "Q"
+        #     }
+        # )
+        #
+        # logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
 
-        js8call_api.send('STATION.GET_CALLSIGN', '')
-        logger.info('TX -> : STATION.GET_CALLSIGN')
-        if js8call_api.connected:
-            messages = js8call_api.listen()
-            if len(messages) > 0:
-                for message in messages:
-                    typ = message.get('type', '')
-                    logger.info('RX <- : ' + typ)
-                    value = message.get('value', '')
-                    if typ == 'STATION.CALLSIGN':
-                        js8call_api.set_my_station(value)
-                        self.this_blog = value  # blog name is the station callsign
-                        logger.info(f"This blog is: {self.this_blog}")
-            else:
-                logger.error('Unable to get my callsign.')
+        while True:
+            try:  # To catch a KeyboardInterrupt
+                # Check for incoming messages from COMMS.
+                try:
+                    m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
 
-        mb_announcement = MbAnnouncement(self.this_blog)
+                    if m.get_typ() != MessageType.SIGNAL:
+                        logger.info(
+                            f"Received from COMMS: " +
+                            f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
+                        )
 
-        # this debug code block processes simulated incoming commands
+                    if self.this_blog == '':
+                        # We can't go any further until we have the blog name
+                        if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
+                            self.this_blog = m.get_param(MessageParameter.CALLSIGN)
+                            self.mb_announcement = MbAnnouncement(self.this_blog)
+                            c2b_q.task_done()
+                        continue
 
-        try:
-            while js8call_api.connected:
-                if mb_announcement.is_announcement_needed():
+                    elif m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.INFORM:
+                        self.process(m)
+
+                    c2b_q.task_done()
+
+                except queue.Empty:
+                    pass
+
+                if self.mb_announcement.is_announcement_needed():
                     # refresh the blog with new posts
                     if posts_url_root:
                         blog_store = UpstreamStore()
-                        meta = mb_announcement.latest_post_meta()
+                        meta = self.mb_announcement.latest_post_meta()
                         next_post_needed = meta['post_id'] + 1
                         logger.info("Checking central store for new posts")
                         blog_store.get_new_content(starting_at=next_post_needed)
 
-                    mb_announcement.send_mb_announcement(js8call_api)
+                    self.mb_announcement.send_mb_announcement()
 
-                messages = js8call_api.listen()
-                # messages = js8call_api.listen_mock()
-
-                if len(messages) == 0:
-                    continue
-
-                for message in messages:
-                    typ = message.get('type', '')
-                    logger.debug('RX <- : ' + typ)
-                    value = message.get('value', '')
-
-                    if not typ:
-                        continue
-
-                    elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-                        # if we have received an @MB Q we need to handle differently to commands
-                        if re.search(r"^\S+: @MB\s+Q", value):
-                            logger.info('RX <- : ' + value)
-                            mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
-
-                        elif message['params']['TO'] == self.this_blog:
-                            rsp = self.process(message)
-
-                            if not rsp:
-                                continue
-
-                            rsp_message = f"{message['params']['FROM']} {rsp}"
-
-                            log_msg = re.findall(r"^([\S\s]+~)", rsp_message)
-                            if len(log_msg) > 0:
-                                logger.info('RSP -> : ' + log_msg[0])
-                            else:
-                                logger.info('RSP -> : ' + rsp_message)
-
-                            # Time to send the response.
-                            js8call_api.send('TX.SEND_MESSAGE', rsp_message)
-
-                        else:
-                            logger.info('REQ not for me <- : ' + value)
-
-        finally:
-            js8call_api.close()
+            except KeyboardInterrupt:
+                self.comms_t.join(1)  # wait for up to one second for the comms thread to exit
+                logger.info('CTRL-C')
 
 
 def main():
