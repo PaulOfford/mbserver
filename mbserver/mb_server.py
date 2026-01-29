@@ -56,7 +56,12 @@ def send_to_comms(m: UnifiedMessage):
         logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
 
     logger.debug(f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
-    b2c_q.put(m)
+    if m.priority == 0:
+        b2c_q_p0.put(m)
+    elif m.priority == 1:
+        b2c_q_p1.put(m)
+
+    # If it's not P0 or P1, ignore it.
 
 
 def is_valid_post_file(file_spec: str):
@@ -182,6 +187,7 @@ class MbAnnouncement:
             message = f"{meta['post_id']} {compressed_latest_post_date}"
 
             m = UnifiedMessage(
+                priority=1,
                 target=MessageTarget.COMMS,
                 typ=MessageType.MB_MSG,
                 verb=MessageVerb.SEND,
@@ -249,6 +255,7 @@ class MbServer:
         if len(mb_rsp) > 0:
 
             m_out = UnifiedMessage(
+                priority=1,
                 target=MessageTarget.COMMS,
                 typ=MessageType.MB_MSG,
                 verb=MessageVerb.SEND,
@@ -317,6 +324,7 @@ class MbServer:
 
             except KeyboardInterrupt:
                 m = UnifiedMessage(
+                    priority=0,
                     target=MessageTarget.COMMS,
                     typ=MessageType.CONTROL,
                     verb=MessageVerb.SHUTDOWN

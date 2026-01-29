@@ -7,7 +7,7 @@ import time
 import select
 
 from .general_functions import add_progress_m
-from .message_q import b2c_q, c2b_q, UnifiedMessage, MessageType, MessageVerb, MessageParameter
+from .message_q import b2c_q_p0, b2c_q_p1, c2b_q, UnifiedMessage, MessageType, MessageVerb, MessageParameter
 from .config import SETTINGS
 
 role = SETTINGS.role
@@ -15,6 +15,7 @@ js8call_addr = SETTINGS.server
 debug = SETTINGS.debug
 
 logger = logging.getLogger(__name__)
+
 
 class Js8CallApi:
 
@@ -160,22 +161,32 @@ class Js8CallDriver:
         #     return
 
         try:
-            comms_tx: UnifiedMessage = b2c_q.get(timeout=timeout)
-        except queue.Empty:
-            return
-
-        try:
+            comms_tx: UnifiedMessage = b2c_q_p0.get(timeout=timeout)
             logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
             self.process_comms_tx(comms_tx)
             add_progress_m(comms_tx)
-        finally:
-            b2c_q.task_done()
+            b2c_q_p0.task_done()
+        except queue.Empty:
+            try:
+                comms_tx: UnifiedMessage = b2c_q_p1.get(timeout=timeout)
+                logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
+                self.process_comms_tx(comms_tx)
+                add_progress_m(comms_tx)
+                b2c_q_p1.task_done()
+            except queue.Empty:
+                return
+        return
 
     @staticmethod
     def signal_frontend(verb: MessageVerb):
         # These are the signa verbs we can send to the FRONTEND:
         #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
-        m = UnifiedMessage.create(target="FRONTEND", typ="SIGNAL", verb=verb)
+        m = UnifiedMessage.create(
+            priority=0,
+            target="FRONTEND",
+            typ="SIGNAL",
+            verb=verb
+        )
         c2b_q.put(m)
 
     @staticmethod
@@ -183,6 +194,7 @@ class Js8CallDriver:
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
         m = UnifiedMessage.create(
+            priority=0,
             target="BACKEND",
             typ="SIGNAL",
             verb=verb,
@@ -194,7 +206,10 @@ class Js8CallDriver:
     def inform_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage.create(
-            target="BACKEND", typ="MB_MSG", verb="INFORM",
+            priority=1,
+            target="BACKEND",
+            typ="MB_MSG",
+            verb="INFORM",
             params={
                 "source": source,
                 "destination": destination,
@@ -209,7 +224,10 @@ class Js8CallDriver:
     def announce_to_backend(source: str, frequency: int, destination: str, mb_message: str):
         # This is where we send an inbound microblog message to the backend
         m = UnifiedMessage.create(
-            target="BACKEND", typ="MB_MSG", verb="ANNOUNCE",
+            priority=1,
+            target="BACKEND",
+            typ="MB_MSG",
+            verb="ANNOUNCE",
             params={
                 "source": source,
                 "destination": destination,
