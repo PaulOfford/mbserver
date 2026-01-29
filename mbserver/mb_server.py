@@ -52,9 +52,8 @@ LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 def send_to_comms(m: UnifiedMessage):
     if m.get_param(MessageParameter.MB_MSG):
-        logger.info(
-            f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {m.get_param(MessageParameter.MB_MSG)}"
-        )  # console trace of messages being sent
+        log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
+        logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
 
     logger.debug(f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
     b2c_q.put(m)
@@ -259,9 +258,6 @@ class MbServer:
                 }
             )
 
-            log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
-            logger.info(f"SEND -> {m_out.get_param(MessageParameter.DESTINATION)}: +{log_msg}")
-
             return m_out
 
         else:
@@ -281,7 +277,7 @@ class MbServer:
                     m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
 
                     if m.get_typ() != MessageType.SIGNAL:
-                        logger.info(
+                        logger.debug(
                             f"Received from COMMS: " +
                             f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
                         )
