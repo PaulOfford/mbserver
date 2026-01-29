@@ -125,12 +125,13 @@ class Js8CallDriver:
 
     def process_mb_msg(self, m: UnifiedMessage):
         req_msg = f"{m.get_param(MessageParameter.DESTINATION)} {m.get_param(MessageParameter.MB_MSG)}"
-        self.tx_block_timeout = time.time() + 15  # Block further sends
+        # self.tx_block_timeout = time.time() + 15  # Block further sends
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, m: UnifiedMessage):
         if m.get_verb() == MessageVerb.SHUTDOWN:
-            exit(0)
+            self.is_connected = False
+            return
         elif m.get_verb() == MessageVerb.SET_FREQ:
             self.set_radio_frequency(m.get_param(MessageParameter.FREQUENCY))
         elif m.get_verb() == MessageVerb.GET_FREQ:
@@ -155,8 +156,8 @@ class Js8CallDriver:
 
         Uses a short blocking wait (reduces CPU) and then drains any burst.
         """
-        if time.time() < self.tx_block_timeout:
-            return
+        # if time.time() < self.tx_block_timeout:
+        #     return
 
         try:
             comms_tx: UnifiedMessage = b2c_q.get(timeout=timeout)
@@ -230,7 +231,6 @@ class Js8CallDriver:
 
         try:
             while self.is_connected:
-
                 # process messages from the backend
                 self.process_tx_q()
 

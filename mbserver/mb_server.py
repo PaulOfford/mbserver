@@ -93,7 +93,6 @@ class CmdProcessors:
         else:
             return '\n'.join(list_of_posts)
 
-
     def verb_list(self, req: dict):
         # The req structure will look like one of these
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
@@ -159,7 +158,6 @@ class MbAnnouncement:
             return {'post_id': int(post_id), 'post_date': post_date}
         else:
             return {'post_id': 0, 'post_date': "1970-01-01"}
-
 
     def is_announcement_needed(self):
         epoch = time.time()
@@ -227,7 +225,7 @@ class MbServer:
 
         mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
 
-        logger.info('REQ <- : ' + mb_req)  # console trace of messages received
+        logger.info(f"REQ <- {m.get_param(MessageParameter.SOURCE)}: {mb_req}")  # console trace of messages received
 
         if mb_req == 'Q':
             self.mb_announcement.next_announcement = 0
@@ -251,7 +249,6 @@ class MbServer:
         elif req['verb'] == 'GET':
             mb_rsp = p.verb_get(req)
 
-
         if len(mb_rsp) > 0:
 
             m_out = UnifiedMessage(
@@ -265,7 +262,7 @@ class MbServer:
             )
 
             log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
-            logger.info(f"RSP -> : +{log_msg}")
+            logger.info(f"RSP -> {m_out.get_param(MessageParameter.DESTINATION)}: +{log_msg}")
 
             return m_out
 
@@ -295,6 +292,7 @@ class MbServer:
                         # We can't go any further until we have the blog name
                         if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
                             self.this_blog = m.get_param(MessageParameter.CALLSIGN)
+                            logger.info(f"Running as blog {self.this_blog}")
                             self.mb_announcement = MbAnnouncement(self.this_blog)
                             c2b_q.task_done()
                         continue
@@ -324,8 +322,17 @@ class MbServer:
                     self.mb_announcement.send_mb_announcement()
 
             except KeyboardInterrupt:
+                m = UnifiedMessage(
+                    target=MessageTarget.COMMS,
+                    typ=MessageType.CONTROL,
+                    verb=MessageVerb.SHUTDOWN
+                )
+
+                send_to_comms(m)
+
                 self.comms_t.join(1)  # wait for up to one second for the comms thread to exit
-                logger.info('CTRL-C')
+                logger.info('The server is stopping')
+                break
 
 
 def main():
