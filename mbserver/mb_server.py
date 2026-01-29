@@ -51,6 +51,11 @@ LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 
 def send_to_comms(m: UnifiedMessage):
+    if m.get_param(MessageParameter.MB_MSG):
+        logger.info(
+            f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {m.get_param(MessageParameter.MB_MSG)}"
+        )  # console trace of messages being sent
+
     logger.debug(f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
     b2c_q.put(m)
 
@@ -187,8 +192,6 @@ class MbAnnouncement:
                 }
             )
 
-            logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
-
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
 
@@ -207,11 +210,6 @@ class MbServer:
         self.comms_t.start()
 
     @staticmethod
-    def send_to_comms(m: UnifiedMessage):
-        logger.info(f"Sending to COMMS: {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}")
-        b2c_q.put(m)
-
-    @staticmethod
     def tidy(messy: str) -> str:
         # tidy up the message string
         value = messy.replace(' ' + msg_terminator, '')  # remove the message terminator
@@ -225,7 +223,7 @@ class MbServer:
 
         mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
 
-        logger.info(f"REQ <- {m.get_param(MessageParameter.SOURCE)}: {mb_req}")  # console trace of messages received
+        logger.info(f"RECV <- {m.get_param(MessageParameter.SOURCE)}: {mb_req}")  # console trace of messages received
 
         if mb_req == 'Q':
             self.mb_announcement.next_announcement = 0
@@ -262,7 +260,7 @@ class MbServer:
             )
 
             log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
-            logger.info(f"RSP -> {m_out.get_param(MessageParameter.DESTINATION)}: +{log_msg}")
+            logger.info(f"SEND -> {m_out.get_param(MessageParameter.DESTINATION)}: +{log_msg}")
 
             return m_out
 
