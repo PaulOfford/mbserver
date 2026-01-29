@@ -324,7 +324,11 @@ class UnifiedMessage:
         return self.verb
 
     def get_param(self, parameter: MessageParameter):
-        return self.params[parameter.value]
+        try:
+            value = self.params[parameter.value]
+            return value
+        except KeyError:
+            return None
 
     def get_params(self) -> Dict[str, Any]:
         return self.params
