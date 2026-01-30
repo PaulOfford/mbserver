@@ -15,6 +15,7 @@
 # of it.  The author(s) accept no responsibility for violation of any radio or amateur radio regulations
 # resulting from the use of the program code.
 
+import threading
 import os
 import sys
 import argparse
@@ -27,6 +28,7 @@ import logging
 from .logging_setup import configure_logging
 from .config import SETTINGS
 from .upstream import UpstreamStore
+from .message_q import *
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,20 @@ LOG_TO_FILE = SETTINGS.log_to_file
 LOG_FILE = SETTINGS.log_file
 LOG_MAX_BYTES = SETTINGS.log_max_bytes
 LOG_BACKUP_COUNT = SETTINGS.log_backup_count
+
+
+def send_to_comms(m: UnifiedMessage):
+    if m.get_param(MessageParameter.MB_MSG):
+        log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
+        logger.info(f"SEND -> {m.get_param(MessageParameter.DESTINATION)}: {log_msg}")
+
+    logger.debug(f"Sending to COMMS: {m.get_target().value}|{m.get_typ().value}|{m.get_verb().value}|{m.get_params()}")
+    if m.priority == 0:
+        b2c_q_p0.put(m)
+    elif m.priority == 1:
+        b2c_q_p1.put(m)
+
+    # If it's not P0 or P1, ignore it.
 
 
 def is_valid_post_file(file_spec: str):
@@ -70,107 +86,32 @@ def is_valid_post_file(file_spec: str):
 
 class CmdProcessors:
     @staticmethod
-    def get_post_meta(filename, include_date):
-        post = filename.replace(posts_dir, '')
-        post = post.replace('.txt', '')
-        temp = post.split(' ', 4)
-        post_id = int(temp[0])
-        date = temp[2]
-        text = temp[4]
+    def list_posts(request: dict) -> str:
+        list_of_posts = []
 
-        list_text = str(post_id)
-        if include_date:
-            list_text += ' - ' + date
-        list_text += ' - ' + text
-        list_text += '\n'
+        for post_id in request['id_list']:
+            post_id_str = f"{post_id:04d}"
+            file_list = sorted(Path(posts_dir).glob(f"{post_id_str}*.txt"), reverse=True)
+            file_name = [f.name for f in file_list]
+            if len(file_name) > 0:
+                list_entry = re.findall(r"^([\S\s]+).txt", file_name[0])[0]
+                list_of_posts.append(list_entry)
 
-        return {'post_id': post_id, 'date': date, 'list_text': list_text}
-
-    def mb_lst_by_id(self, request, include_date):
-
-        file_list = sorted(glob.glob(posts_dir + '*.txt'))
-        list_text = ''
-        found_post = False
-        lst_count = 0
-        for post_id in request.post_list:
-            for filename in file_list:
-                if not is_valid_post_file(filename):
-                    continue
-
-                post = self.get_post_meta(filename, include_date)
-                if (request.op == 'gt' and post['post_id'] > post_id)\
-                        or (request.op == 'eq' and post['post_id'] == post_id):
-                    found_post = True
-                    list_text += post['list_text']
-                    lst_count += 1
-                    if request.op == 'eq' or lst_count >= lst_limit:
-                        break
-        if found_post:
-            return list_text
+        if len(list_of_posts) == 0:
+            return 'NO POSTS FOUND'
         else:
-            return 'NO POSTS FOUND' + '\n'
+            return '\n'.join(list_of_posts)
 
-    def mb_lst_by_date(self, request, include_date):
+    def verb_list(self, req: dict):
+        # The req structure will look like one of these
+        # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
+        # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
 
-        file_list = sorted(glob.glob(posts_dir + '*.txt'))
-        list_text = ''
-        found_post = False
-        lst_count = 0
-
-        for date in request.date_list:
-            for filename in file_list:
-                if not is_valid_post_file(filename):
-                    continue
-
-                post = self.get_post_meta(filename, include_date)
-                if (request.op == 'gt' and post['date'] > date)\
-                        or (request.op == 'eq' and post['date'] == date):
-                    found_post = True
-                    list_text += post['list_text']
-                    lst_count += 1
-                    if lst_count >= lst_limit:
-                        break
-
-        if found_post:
-            return list_text
-        else:
-            return 'NO POSTS FOUND' + '\n'
-
-    def process_mb_ext(self, request: ApiRequest):
         success = '+'
-
-        if request.by == 'id':
-            blog_list = self.mb_lst_by_id(request, include_date=True)
-        elif request.by == 'date':
-            blog_list = self.mb_lst_by_date(request, include_date=True)
-        else:
-            blog_list = 'Unexpected error in process_mb_ext - check the api_format entries'
-
-        header = '{caller} {success}{req_string}\n'.format(
-            caller=request.caller,
-            success=success,
-            req_string=request.original_req_string
-        )
-
-        return header + blog_list
-
-    def process_mb_lst(self, request: ApiRequest):
-        success = '+'
-
-        if request.by == 'id':
-            blog_list = self.mb_lst_by_id(request, include_date=False)
-        elif request.by == 'date':
-            blog_list = self.mb_lst_by_date(request, include_date=False)
-        else:
-            blog_list = 'Unexpected error in process_mb_lst - check the api_format entries'
-
-        header = '{caller} {success}{req_string}\n'.format(
-            caller=request.caller,
-            success=success,
-            req_string=request.original_req_string
-        )
-
-        return header + blog_list
+        listing = self.list_posts(req)
+        if listing == 'NO POSTS FOUND':
+            success = '-'
+        return f"{success}{req['cmd']}\n{listing}"
 
     @staticmethod
     def get_post_content(filename):
@@ -179,46 +120,30 @@ class CmdProcessors:
         f.close()
         return post
 
-    def process_mb_get(self, request: ApiRequest) -> str:
-        filename = ''
-        mb_message = ''
-        success = '-'  # assume failure
+    def verb_get(self, req: dict) -> str:
+        # The req structure will look like this:
+        # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
 
-        if len(request.post_list) > 0:
-            found_post = False
-            file_list = sorted(glob.glob(posts_dir + '*' + str(request.post_list[0]) + '*.txt'))
-            for filename in file_list:
-                post = filename.replace(posts_dir, '')
-                temp = post.split(' ', 1)
-                this_post_id = int(temp[0])
-                if this_post_id == request.post_list[0]:
-                    found_post = True
-                    break
-            if found_post:
-                mb_message += '\n' + self.get_post_content(filename)
-                success = '+'  # change success to good
-            else:
-                mb_message = ' NOT FOUND'
+        success = '-'  # Assume the worst.
+        post_content = 'POST NOT FOUND'
 
-        else:
-            mb_message = ' BY DATE UNSUPPORTED'
+        file_search = f"{req['id_list'][0]:04d}*.txt"
 
-        header = '{caller} {success}{req_string}'.format(
-            caller=request.caller,
-            success=success,
-            req_string=request.original_req_string,
-        )
+        file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)
 
-        mb_message = mb_message.replace('\r\n', '\n')
+        if len(file_path_name) > 0:
+            post_content = self.get_post_content(file_path_name[0])
 
-        if replace_nl:
-            mb_message = mb_message.replace('\n', ' ')  # temp code until NL fixed
+        if post_content:
+            # We can give a positive response.
+            success = '+'
 
-        return header + mb_message
+            # Tidy the post content.
+            post_content = post_content.replace('\r\n', '\n')
+            if replace_nl:
+                post_content = post_content.replace('\n', ' ')  # temp code until NL fixed
 
-    def process_wx_get(self, req: ApiRequest) -> str:
-        req.post_list.append(0)
-        return self.process_mb_get(req)
+        return f"{success}{req['cmd']}\n{post_content}"
 
 
 class MbAnnouncement:
@@ -233,15 +158,15 @@ class MbAnnouncement:
 
     @staticmethod
     def latest_post_meta() -> dict:
-        dir_format = r"^.*[\\\\|/](\d+) - (\d\d\d\d-\d\d-\d\d) - (.+\.txt)"
+        file_list = sorted(Path(posts_dir).glob(f"*.txt"), reverse=True)
+        latest_meta = [f.name for f in file_list][0]
 
-        file_list = sorted(glob.glob(posts_dir + '*.txt'), reverse=True)
-        for entry in file_list:
-            post_detail = (re.findall(dir_format, entry))[0]
-            if len(post_detail) > 0:
-                return {'post_id': int(post_detail[0]), 'post_date': post_detail[1]}
+        post_id, post_date = re.findall(r'^(\d+) - (\d{4}-\d{2}-\d{2}) - [\S\s]*\.txt', latest_meta)[0]
 
-        return {'post_id': 0, 'post_date': "1970-01-01"}
+        if post_id:
+            return {'post_id': int(post_id), 'post_date': post_date}
+        else:
+            return {'post_id': 0, 'post_date': "1970-01-01"}
 
     def is_announcement_needed(self):
         epoch = time.time()
@@ -250,7 +175,7 @@ class MbAnnouncement:
         else:
             return False
 
-    def send_mb_announcement(self, js8call_api: Js8CallApi):
+    def send_mb_announcement(self):
         # get the current epoch
         epoch = time.time()
         if epoch > self.next_announcement:
@@ -259,63 +184,89 @@ class MbAnnouncement:
             # compress the date from yyyy-mm-dd into yymmdd
             compressed_latest_post_date = meta['post_date'].replace('-', '')[2:]
 
-            message = f"@MB {meta['post_id']} {compressed_latest_post_date}"
-            js8call_api.send('TX.SEND_MESSAGE', message)
-            logger.info("SIG -> : " + message)
+            message = f"{meta['post_id']} {compressed_latest_post_date}"
+
+            m = UnifiedMessage(
+                priority=1,
+                target=MessageTarget.COMMS,
+                typ=MessageType.MB_MSG,
+                verb=MessageVerb.SEND,
+                params={
+                    MessageParameter.DESTINATION: "@MB",
+                    MessageParameter.MB_MSG: message
+                }
+            )
+
             # update the next announcement epoch
             self.next_announcement = epoch + (mb_announcement_timer * 60)
+
+            send_to_comms(m)
 
 
 class MbServer:
 
     this_blog = ''
     request = None
+    mb_announcement = None
 
-    def process(self, mb_req):
-        mb_rsp = ''
+    def __init__(self):
+        comms = Js8CallDriver()
+        self.comms_t = threading.Thread(target=comms.run_comms)
+        self.comms_t.start()
 
-        value = mb_req.get('value', '')
+    @staticmethod
+    def tidy(messy: str) -> str:
         # tidy up the message string
-        value = value.replace(' ' + msg_terminator, '')  # remove the message terminator
+        value = messy.replace(' ' + msg_terminator, '')  # remove the message terminator
         value = value.replace(msg_terminator, '')  # remove the message terminator
         value = value.strip()
-        value = value.replace('  ', ' ')  # remove double spaces
+        clean = value.replace('  ', ' ')  # remove double spaces
+        return clean
 
-        if value:
-            # split into origin, destination and command
-            value_parts = re.findall(r"\s*(\S+):\s+(\S+)\s*([\S\s]+)", value)
-            if len(value_parts) == 0:
-                return None  # not for us
-            if len(value_parts[0]) < 3:
-                return None  # not for us
+    def process(self, m: UnifiedMessage) -> Optional[UnifiedMessage]:
+        mb_rsp = ''
 
-            cli = CliCmd(value_parts[0][2])
-            if cli.is_cli:
-                api_req_string = cli.api_cmd
-            else:
-                api_req_string = value_parts[0][2]
+        mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
 
-            self.request = ApiRequest(value_parts[0][0], value_parts[0][2])
+        logger.info(f"RECV <- {m.get_param(MessageParameter.SOURCE)}: {mb_req}")  # console trace of messages received
 
-            if self.request.parse(api_req_string) < 0:
-                pass  # the received string isn't for us - do nothing
+        if mb_req == 'Q':
+            self.mb_announcement.next_announcement = 0
 
-            elif self.request.rc == 0:
-                # looks good - go for it
-                procs = CmdProcessors()
-                mb_rsp = getattr(CmdProcessors, self.request.proc)(procs, self.request)
+        # mb_req is in the format _source_: _destination_ _mb_cmd_
+        req = api_get_req_structure(mb_req)  # Go get a structured request
 
-            else:
-                # must be an error
-                mb_rsp = '{caller} {success}{cmd} {error_msg}'.format(
-                    caller=self.request.caller,
-                    success='-',
-                    cmd=self.request.cmd,
-                    error_msg=self.request.msg
-                )
+        if req == {}:
+            logger.info('Not an MB request <- : ' + mb_req)
+            return None
+
+        # The req structure will look like one of these
+        # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
+        # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
+        # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
+
+        p = CmdProcessors()
+
+        if req['verb'] == 'LIST':
+            mb_rsp = p.verb_list(req)
+        elif req['verb'] == 'GET':
+            mb_rsp = p.verb_get(req)
 
         if len(mb_rsp) > 0:
-            return mb_rsp.upper()
+
+            m_out = UnifiedMessage(
+                priority=1,
+                target=MessageTarget.COMMS,
+                typ=MessageType.MB_MSG,
+                verb=MessageVerb.SEND,
+                params={
+                    MessageParameter.DESTINATION: m.get_param(MessageParameter.SOURCE),
+                    MessageParameter.MB_MSG: mb_rsp
+                }
+            )
+
+            return m_out
+
         else:
             return None
 
@@ -326,73 +277,64 @@ class MbServer:
             logger.info("Check that the posts_dir value in config.ini is correct")
             exit(1)
 
-        js8call_api = Js8CallApi()
-        js8call_api.connect()
+        while True:
+            try:  # To catch a KeyboardInterrupt
+                # Check for incoming messages from COMMS.
+                try:
+                    m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
 
-        js8call_api.send('STATION.GET_CALLSIGN', '')
-        logger.info('TX -> : STATION.GET_CALLSIGN')
-        if js8call_api.connected:
-            messages = js8call_api.listen()
-            if len(messages) > 0:
-                for message in messages:
-                    typ = message.get('type', '')
-                    logger.info('RX <- : ' + typ)
-                    value = message.get('value', '')
-                    if typ == 'STATION.CALLSIGN':
-                        js8call_api.set_my_station(value)
-                        self.this_blog = value  # blog name is the station callsign
-            else:
-                logger.error('Unable to get my callsign.')
+                    if m.get_typ() != MessageType.SIGNAL:
+                        logger.debug(
+                            f"Received from COMMS: " +
+                            f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
+                        )
 
-        mb_announcement = MbAnnouncement(self.this_blog)
+                    if self.this_blog == '':
+                        # We can't go any further until we have the blog name
+                        if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
+                            self.this_blog = m.get_param(MessageParameter.CALLSIGN)
+                            logger.info(f"Running as blog {self.this_blog}")
+                            self.mb_announcement = MbAnnouncement(self.this_blog)
+                            c2b_q.task_done()
+                        continue
 
-        # this debug code block processes simulated incoming commands
+                    elif m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.INFORM:
+                        m = self.process(m)
+                        if m is not None:
+                            send_to_comms(m)
 
-        try:
-            while js8call_api.connected:
-                if mb_announcement.is_announcement_needed():
+                    c2b_q.task_done()
+
+                except queue.Empty:
+                    pass
+
+                if self.this_blog == '':
+                    continue
+
+                if self.mb_announcement.is_announcement_needed():
                     # refresh the blog with new posts
                     if posts_url_root:
-                        blog_store = UpstreamStore(posts_url_root, posts_dir, self.this_blog)
-                        meta = mb_announcement.latest_post_meta()
+                        blog_store = UpstreamStore()
+                        meta = self.mb_announcement.latest_post_meta()
                         next_post_needed = meta['post_id'] + 1
                         logger.info("Checking central store for new posts")
                         blog_store.get_new_content(starting_at=next_post_needed)
 
-                    mb_announcement.send_mb_announcement(js8call_api)
+                    self.mb_announcement.send_mb_announcement()
 
-                messages = js8call_api.listen()
-                # messages = js8call_api.listen_mock()
+            except KeyboardInterrupt:
+                m = UnifiedMessage(
+                    priority=0,
+                    target=MessageTarget.COMMS,
+                    typ=MessageType.CONTROL,
+                    verb=MessageVerb.SHUTDOWN
+                )
 
-                if len(messages) == 0:
-                    continue
+                send_to_comms(m)
 
-                for message in messages:
-                    typ = message.get('type', '')
-                    logger.info('RX <- : ' + typ)
-                    value = message.get('value', '')
-
-                    if not typ:
-                        continue
-
-                    elif typ == 'RX.DIRECTED':  # we are only interested in messages directed to us, including @MB
-                        # if we have received an @MB Q we need to handle differently to commands
-                        if re.search(r"^\S+: @MB\s+Q", value):
-                            mb_announcement.next_announcement = 0  # we might want to change this later to avoid clashes
-                        elif message['params']['TO'] == "EA7QTH":
-                            rsp_message = self.process(message)
-                            if rsp_message:
-                                logmsg = re.findall(r"^([\S\s]+~)", rsp_message)
-                                if len(logmsg) > 0:
-                                    logger.info('RSP -> : ' + logmsg[0])
-                                else:
-                                    logger.info('RSP -> : ' + rsp_message)
-
-                                # Time to send the response.
-                                js8call_api.send('TX.SEND_MESSAGE', rsp_message)
-
-        finally:
-            js8call_api.close()
+                self.comms_t.join(1)  # wait for up to one second for the comms thread to exit
+                logger.info('The server is stopping')
+                break
 
 
 def main():
