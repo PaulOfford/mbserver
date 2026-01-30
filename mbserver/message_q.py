@@ -3,13 +3,17 @@ from __future__ import annotations
 import time
 from enum import Enum
 from queue import Queue
-from typing import Any, Dict, Mapping, Optional, Union, Literal, cast
+from typing import Any, Dict, Mapping, Optional, Union, Literal, cast, Type, TypeVar
 
 MAX_QUEUE_SIZE = 20
 
 b2c_q_p0 = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
 b2c_q_p1 = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the backend to the comms driver
 c2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the backend from the comms driver
+
+# The following queues are only used by MbClient
+f2b_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages from the frontend to the backend
+b2f_q = Queue(maxsize=MAX_QUEUE_SIZE)  # queue for messages to the frontend from the backend
 
 
 class UiArea(str, Enum):
@@ -124,7 +128,10 @@ TypeLike = Union[MessageType, MessageTypeStr, str]
 VerbLike = Union[MessageVerb, MessageVerbStr, str]
 
 
-def _coerce_enum(enum_cls: type[Enum], value: Any, *, field: str) -> Enum:
+E = TypeVar("E", bound=Enum)
+
+
+def _coerce_enum(enum_cls: Type[E], value: Any, *, field: str) -> E:
     """Coerce an input into an Enum member.
 
     Accepts:
@@ -133,17 +140,25 @@ def _coerce_enum(enum_cls: type[Enum], value: Any, *, field: str) -> Enum:
     """
     if isinstance(value, enum_cls):
         return value
+
     if isinstance(value, str):
         s = value.strip()
+
         # Match by name (preferred because it matches the 'COMMS' style the caller wants).
         member = enum_cls.__members__.get(s.upper())
         if member is not None:
             return member
-        # Match by value (e.g. 'comms', 'request', 'flash_rx_start')
-        for m in enum_cls:  # type: ignore[assignment]
-            if str(m.value).lower() == s.lower():
+
+        # Match by value (e.g. 'comms', 'request', 'flash_rx_start') case-insensitive
+        s_lower = s.lower()
+        for m in enum_cls:
+            m = cast(E, m)  # help PyCharm: iteration typing for Enum subclasses can be flaky
+            if str(m.value).lower() == s_lower:
                 return m
-    raise ValueError(f"Invalid {field}: {value!r}. Expected one of {[m.name for m in enum_cls]} or their values.")
+
+    raise ValueError(
+        f"Invalid {field}: {value!r}. Expected one of {[m.name for m in enum_cls]} or their values."
+    )
 
 
 def _coerce_param_key(key: MessageParameterKey) -> MessageParameter:
@@ -154,16 +169,20 @@ def _coerce_param_key(key: MessageParameterKey) -> MessageParameter:
         member = MessageParameter.__members__.get(s.upper())
         if member is not None:
             return member
+
         # match by value
+        s_lower = s.lower()
         for m in MessageParameter:
-            if m.value.lower() == s.lower():
-                return m
-    raise ValueError(f"Invalid parameter key: {key!r}. Expected one of {[m.value for m in MessageParameter]}.")
+            if m.lower() == s_lower:
+                return cast(MessageParameter, m)  # Yes, this is a MessageParameter; the IDE just needs help.
+    raise ValueError(f"Invalid parameter key: {key!r}. Expected one of {[m for m in MessageParameter]}.")
 
 
 def _validate_param_value(param: MessageParameter, value: Any) -> Any:
     """Validate and (where helpful) coerce parameter values."""
-    if param in (MessageParameter.SOURCE, MessageParameter.DESTINATION, MessageParameter.CALLSIGN, MessageParameter.BLOG):
+    if param in (
+            MessageParameter.SOURCE, MessageParameter.DESTINATION, MessageParameter.CALLSIGN, MessageParameter.BLOG
+    ):
         if not isinstance(value, str):
             raise TypeError(f"Parameter '{param.value}' must be a str, got {type(value).__name__}.")
         return value
@@ -259,7 +278,6 @@ class UnifiedMessage:
         )
         return m
 
-
     def set_many(
         self,
         *,
@@ -277,7 +295,9 @@ class UnifiedMessage:
         being created (even if called from dynamically-typed code).
         """
         if extra:
-            raise ValueError(f"Unknown UnifiedMessage fields: {sorted(extra.keys())}. Allowed: ts, priority, target, typ, verb, params")
+            raise ValueError(
+                f"Unknown UnifiedMessage fields: {sorted(extra.keys())}."
+                f" Allowed: ts, priority, target, typ, verb, params")
 
         if ts is not None:
             if not isinstance(ts, (int, float)):
@@ -290,13 +310,13 @@ class UnifiedMessage:
             self.priority = priority
 
         if target is not None:
-            self.target = cast(MessageTarget, _coerce_enum(MessageTarget, target, field="target"))
+            self.target = _coerce_enum(MessageTarget, target, field="target")
 
         if typ is not None:
-            self.typ = cast(MessageType, _coerce_enum(MessageType, typ, field="typ"))
+            self.typ = _coerce_enum(MessageType, typ, field="typ")
 
         if verb is not None:
-            self.verb = cast(MessageVerb, _coerce_enum(MessageVerb, verb, field="verb"))
+            self.verb = _coerce_enum(MessageVerb, verb, field="verb")
 
         if params is not None:
             if not isinstance(params, Mapping):
@@ -304,7 +324,7 @@ class UnifiedMessage:
             new_params: Dict[str, Any] = {}
             for k, v in params.items():
                 p = _coerce_param_key(k)
-                new_params[p.value] = _validate_param_value(p, v)
+                new_params[str(p)] = _validate_param_value(p, v)
             self.params = new_params
 
     # Getters
@@ -326,7 +346,7 @@ class UnifiedMessage:
 
     def get_param(self, parameter: MessageParameter):
         try:
-            value = self.params[parameter.value]
+            value = self.params[str(parameter)]
             return value
         except KeyError:
             return None

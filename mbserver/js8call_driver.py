@@ -109,7 +109,7 @@ class Js8CallDriver:
     rx_ind_timeout: float = 0.0
     flash_duration = 0.5
 
-    tx_block_timeout: float = 0.0
+    tx_release_time: float = 0.0
 
     is_connected = False
 
@@ -152,7 +152,7 @@ class Js8CallDriver:
         else:
             logger.error(f"Invalid message received from backend, typ = {m.get_typ()}")
 
-    def process_tx_q(self, timeout: float = 0.05):
+    def process_tx_q(self, timeout: float = 0.0):
         """Process outbound messages from the backend.
 
         Uses a short blocking wait (reduces CPU) and then drains any burst.
@@ -167,14 +167,16 @@ class Js8CallDriver:
             add_progress_m(comms_tx)
             b2c_q_p0.task_done()
         except queue.Empty:
-            try:
-                comms_tx: UnifiedMessage = b2c_q_p1.get(timeout=timeout)
-                logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
-                self.process_comms_tx(comms_tx)
-                add_progress_m(comms_tx)
-                b2c_q_p1.task_done()
-            except queue.Empty:
-                return
+            if time.time() > self.tx_release_time:
+                # We are free to send another priority 1 message.
+                try:
+                    comms_tx: UnifiedMessage = b2c_q_p1.get(timeout=timeout)
+                    logger.debug(f"Received from BACKEND: {comms_tx.get_params()}")
+                    self.process_comms_tx(comms_tx)
+                    add_progress_m(comms_tx)
+                    b2c_q_p1.task_done()
+                except queue.Empty:
+                    return
         return
 
     @staticmethod
@@ -280,9 +282,12 @@ class Js8CallDriver:
                         if value == 'on':
                             fe_verb = MessageVerb.FLASH_TX_START
                             ptt_state = True
+                            self.tx_release_time = time.time() + 15  # We need to wait for the last send to complete
+
                         else:
                             fe_verb = MessageVerb.FLASH_TX_STOP
                             ptt_state = False
+                            self.tx_release_time = time.time() + 5  # We need to wait in case there are more frames
 
                         if role == 'mbserver':
                             self.signal_backend(MessageVerb.NOTE_PTT, ptt_state)
@@ -303,6 +308,7 @@ class Js8CallDriver:
                         logger.debug('q_put: NOTE_OFFSET - ' + str(offset))
 
                     elif js8call_msg_type == 'RX.DIRECTED':
+                        logger.info(f"RX.DIRECTED {value}")
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
                         mb_message = msg_elements[0]
