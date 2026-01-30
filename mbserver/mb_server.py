@@ -373,6 +373,13 @@ def main():
         default=None,
         help="Number of rotated log files to keep. Overrides config.ini [logging] log_backup_count.",
     )
+    parser.add_argument(
+        "--tcp-port",
+        dest="tcp_port",
+        type=int,
+        default=None,
+        help="The TCP port number that JS8Call is listening to for a connection from MbServer",
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
