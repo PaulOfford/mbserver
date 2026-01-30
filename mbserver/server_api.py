@@ -134,20 +134,14 @@ def api_get_req_components(req: str) -> dict:
         'cmd': components[2],
     }
 
-def api_get_req_structure(req: str) -> dict:
-    # req is in the format _source_: _destination_ _mb_cmd_
+def api_get_req_structure(mb_cmd: str) -> dict:
+    # mb_cmd is the get command, e.g. G1~ or M.G 1
 
-    logger.info('REQ <- : ' + req)  # console trace of messages received
-
-    components = api_get_req_components(req)
-    # client = components['source']  # No using this line at the moment
-    cmd = components['cmd']
-
-    if cmd[:2] == 'M.':
+    if mb_cmd[:2] == 'M.':
         # This is a CLI command that we need to translate to an api command
-        cmd = cli_translate(cmd)
+        cmd = cli_translate(mb_cmd)
 
-    req_dict = api_parse_req(cmd)
+    req_dict = api_parse_req(mb_cmd)
 
     if req_dict == {}:
         return req_dict

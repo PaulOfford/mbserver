@@ -47,6 +47,8 @@ def _parse_log_level(value: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
+    role: str
+
     # Server / protocol
     server: Tuple[str, int]
     msg_terminator: str
@@ -125,6 +127,7 @@ def load_settings() -> Settings:
     log_backup_count = _as_int(cfg, "logging", "log_backup_count", 5)
 
     return Settings(
+        role='mb_server',
         server=(host, port),
         msg_terminator=msg_terminator,
         announce=announce,
