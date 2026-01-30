@@ -132,12 +132,11 @@ class CmdProcessors:
         file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)
 
         if len(file_path_name) > 0:
-            post_content = self.get_post_content(file_path_name[0])
-
-        if post_content:
             # We can give a positive response.
             success = '+'
+            post_content = self.get_post_content(file_path_name[0])
 
+        if success == '+':
             # Tidy the post content.
             post_content = post_content.replace('\r\n', '\n')
             if replace_nl:
