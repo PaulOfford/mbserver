@@ -107,7 +107,7 @@ class Js8CallDriver:
     status = None
     request = None
     rx_ind_timeout: float = 0.0
-    flash_duration = 0.5
+    rx_duration = 0.5
 
     tx_release_time: float = 0.0
 
@@ -194,7 +194,7 @@ class Js8CallDriver:
     @staticmethod
     def signal_backend(verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
-        #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN
+        #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN, NOTE_RX, NOTE_PTT
         m = UnifiedMessage.create(
             priority=0,
             target="BACKEND",
@@ -258,10 +258,7 @@ class Js8CallDriver:
                 messages = self.js8call_api.listen()
 
                 if 0 < self.rx_ind_timeout < time.time():
-                    if role == 'mbserver':
-                        self.signal_backend(MessageVerb.FLASH_RX_STOP, None)
-                    else:
-                        self.signal_frontend(MessageVerb.FLASH_RX_STOP)
+                    self.signal_backend(MessageVerb.NOTE_RX, param={MessageParameter.RX: False})
                     self.rx_ind_timeout = 0
 
                 for message in messages:
@@ -269,30 +266,23 @@ class Js8CallDriver:
                     value = message.get('value', '')
                     params = message.get('params', {})
 
-                    if role == 'mbserver':
-                        self.signal_backend(MessageVerb.FLASH_RX_START, None)
-                    else:
-                        self.signal_frontend(MessageVerb.FLASH_RX_START)
-                    self.rx_ind_timeout = time.time() + self.flash_duration
+                    if self.rx_ind_timeout == 0:
+                        self.signal_backend(MessageVerb.NOTE_RX, param={MessageParameter.RX: True})
+                    self.rx_ind_timeout = time.time() + self.rx_duration
 
                     if not js8call_msg_type:
                         continue
 
                     elif js8call_msg_type == 'RIG.PTT':
                         if value == 'on':
-                            fe_verb = MessageVerb.FLASH_TX_START
                             ptt_state = True
                             self.tx_release_time = time.time() + 15  # We need to wait for the last send to complete
 
                         else:
-                            fe_verb = MessageVerb.FLASH_TX_STOP
                             ptt_state = False
                             self.tx_release_time = time.time() + 5  # We need to wait in case there are more frames
 
-                        if role == 'mbserver':
-                            self.signal_backend(MessageVerb.NOTE_PTT, ptt_state)
-                        else:
-                            self.signal_frontend(fe_verb)
+                        self.signal_backend(MessageVerb.NOTE_PTT, {MessageParameter.PTT: ptt_state})
 
                     elif js8call_msg_type == 'STATION.CALLSIGN':
                         self.signal_backend(MessageVerb.NOTE_CALLSIGN, {'callsign': value})
@@ -308,7 +298,7 @@ class Js8CallDriver:
                         logger.debug('q_put: NOTE_OFFSET - ' + str(offset))
 
                     elif js8call_msg_type == 'RX.DIRECTED':
-                        logger.info(f"RX.DIRECTED {value}")
+                        logger.debug(f"RX.DIRECTED {value}")
                         # We need to extract the source and destination
                         msg_elements = re.findall(r"^\S+: +\S+ +([\S\s]+)", value)
                         mb_message = msg_elements[0]

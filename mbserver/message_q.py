@@ -73,6 +73,7 @@ class MessageVerb(str, Enum):
     NOTE_OFFSET = "note_offset"
     NOTE_CALLSIGN = "note_callsign"
     NOTE_PTT = "note_ptf"
+    NOTE_RX = "note_rx"
 
     # To COMMS - MB_MSG
     SEND = "send"
@@ -109,6 +110,7 @@ class MessageParameter(str, Enum):
     UI_AREA = "ui_area"
     OPERATOR = "operator"
     PTT = "ptt"
+    RX = "rx"
 
 
 # ---- type helpers for IDE autocomplete / linting ----
