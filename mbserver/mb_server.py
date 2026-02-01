@@ -20,6 +20,7 @@ import os
 import sys
 import argparse
 
+from . import js8call_driver
 from .js8call_driver import *
 from .server_api import *
 from .server_cli import *
@@ -419,6 +420,13 @@ def main():
         backup_count=backup_count,
         console=True,
     )
+
+    if args.tcp_port is not None:
+        host, _ = SETTINGS.server
+        js8call_driver.js8call_addr = (host, args.tcp_port)
+        logger.info(
+            f"Overriding JS8Call TCP port: {host}:{args.tcp_port}"
+        )
 
     srv = MbServer()
     srv.run_server()
