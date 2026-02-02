@@ -125,7 +125,7 @@ class Js8CallDriver:
 
     def process_mb_msg(self, m: UnifiedMessage):
         req_msg = f"{m.get_param(MessageParameter.DESTINATION)} {m.get_param(MessageParameter.MB_MSG)}"
-        # self.tx_block_timeout = time.time() + 15  # Block further sends
+        self.tx_block_timeout = time.time() + 15  # Block further sends
         self.js8call_api.send('TX.SEND_MESSAGE', req_msg)
 
     def process_control(self, m: UnifiedMessage):
