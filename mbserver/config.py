@@ -47,7 +47,6 @@ def _parse_log_level(value: str, default: int) -> int:
 
 @dataclass(frozen=True)
 class Settings:
-    role: str
 
     # Server / protocol
     server: Tuple[str, int]
@@ -79,7 +78,7 @@ def load_settings() -> Settings:
     defaults = {
         "server": {
             "host": "127.0.0.1",
-            "port": "2443",
+            "port": "2442",
             "msg_terminator": "♢",
             "announce": "true",
             "mb_announcement_timer": "60",
@@ -108,7 +107,7 @@ def load_settings() -> Settings:
         cfg.read(path, encoding="utf-8")
 
     host = _as_str(cfg, "server", "host", "127.0.0.1")
-    port = _as_int(cfg, "server", "port", 2443)
+    port = _as_int(cfg, "server", "port", 2442)
     msg_terminator = _as_str(cfg, "server", "msg_terminator", "♢")
     announce = _as_bool(cfg, "server", "announce", True)
     mb_announcement_timer = _as_int(cfg, "server", "mb_announcement_timer", 60)
@@ -127,7 +126,6 @@ def load_settings() -> Settings:
     log_backup_count = _as_int(cfg, "logging", "log_backup_count", 5)
 
     return Settings(
-        role='mb_server',
         server=(host, port),
         msg_terminator=msg_terminator,
         announce=announce,

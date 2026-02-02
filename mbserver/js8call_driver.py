@@ -10,7 +10,6 @@ from .general_functions import add_progress_m
 from .message_q import b2c_q_p0, b2c_q_p1, c2b_q, UnifiedMessage, MessageType, MessageVerb, MessageParameter
 from .config import SETTINGS
 
-role = SETTINGS.role
 js8call_addr = SETTINGS.server
 debug = SETTINGS.debug
 

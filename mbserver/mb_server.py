@@ -20,6 +20,7 @@ import os
 import sys
 import argparse
 
+from . import js8call_driver
 from .js8call_driver import *
 from .server_api import *
 from .server_cli import *
@@ -86,32 +87,32 @@ def is_valid_post_file(file_spec: str):
 
 class CmdProcessors:
     @staticmethod
-    def list_posts(request: dict) -> str:
-        list_of_posts = []
+    def list_posts(post_id: int) -> str:
+        listing = ""
 
-        for post_id in request['id_list']:
-            post_id_str = f"{post_id:04d}"
-            file_list = sorted(Path(posts_dir).glob(f"{post_id_str}*.txt"), reverse=True)
-            file_name = [f.name for f in file_list]
-            if len(file_name) > 0:
-                list_entry = re.findall(r"^([\S\s]+).txt", file_name[0])[0]
-                list_of_posts.append(list_entry)
+        post_id_str = f"{post_id:04d}"
+        file_list = sorted(Path(posts_dir).glob(f"{post_id_str}*.txt"), reverse=True)
+        file_name = [f.name for f in file_list]
+        if len(file_name) > 0:
+            listing = re.findall(r"^([\S\s]+).txt", file_name[0])[0]
 
-        if len(list_of_posts) == 0:
-            return 'NO POSTS FOUND'
-        else:
-            return '\n'.join(list_of_posts)
+        return listing
 
-    def verb_list(self, req: dict):
+    def verb_list(self, req: dict) -> list[str]:
         # The req structure will look like one of these
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
         # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
 
-        success = '+'
-        listing = self.list_posts(req)
-        if listing == 'NO POSTS FOUND':
-            success = '-'
-        return f"{success}{req['cmd']}\n{listing}"
+        response_list = []
+
+        for post_id in req['id_list']:
+            listing = self.list_posts(post_id)
+            if len(listing) > 0:
+                response_list.append(f"+E{post_id}~\n{listing}")
+            else:
+                response_list.append(f"-E{post_id}~\nNO POSTS FOUND")
+
+        return response_list
 
     @staticmethod
     def get_post_content(filename):
@@ -120,29 +121,27 @@ class CmdProcessors:
         f.close()
         return post
 
-    def verb_get(self, req: dict) -> str:
+    def verb_get(self, req: dict) -> list[str]:
         # The req structure will look like this:
         # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
 
-        success = '-'  # Assume the worst.
-        post_content = 'POST NOT FOUND'
+        post_id = req['id_list'][0]
 
-        file_search = f"{req['id_list'][0]:04d}*.txt"
+        file_search = f"{post_id:04d}*.txt"
 
         file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)
 
-        if len(file_path_name) > 0:
-            # We can give a positive response.
-            success = '+'
-            post_content = self.get_post_content(file_path_name[0])
+        if len(file_path_name) == 0:
+            return [f"-G{post_id}~\nPOST NOT FOUND"]
 
-        if success == '+':
-            # Tidy the post content.
-            post_content = post_content.replace('\r\n', '\n')
-            if replace_nl:
-                post_content = post_content.replace('\n', ' ')  # temp code until NL fixed
+        post_content = self.get_post_content(file_path_name[0])
 
-        return f"{success}{req['cmd']}\n{post_content}"
+        # Tidy the post content.
+        post_content = post_content.replace('\r\n', '\n')
+        if replace_nl:
+            post_content = post_content.replace('\n', ' ')  # temp code until NL fixed
+
+        return [f"+G{post_id}~\n{post_content}"]
 
 
 class MbAnnouncement:
@@ -222,8 +221,10 @@ class MbServer:
         clean = value.replace('  ', ' ')  # remove double spaces
         return clean
 
-    def process(self, m: UnifiedMessage) -> Optional[UnifiedMessage]:
-        mb_rsp = ''
+    def process(self, m: UnifiedMessage) -> list[UnifiedMessage]:
+
+        mb_rsp_list: list[str] = []
+        m_out_list: list[UnifiedMessage] = []
 
         mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
 
@@ -237,7 +238,7 @@ class MbServer:
 
         if req == {}:
             logger.info('Not an MB request <- : ' + mb_req)
-            return None
+            return []
 
         # The req structure will look like one of these
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
@@ -247,12 +248,11 @@ class MbServer:
         p = CmdProcessors()
 
         if req['verb'] == 'LIST':
-            mb_rsp = p.verb_list(req)
+            mb_rsp_list = p.verb_list(req)
         elif req['verb'] == 'GET':
-            mb_rsp = p.verb_get(req)
+            mb_rsp_list = p.verb_get(req)
 
-        if len(mb_rsp) > 0:
-
+        for mb_rsp in mb_rsp_list:
             m_out = UnifiedMessage(
                 priority=1,
                 target=MessageTarget.COMMS,
@@ -264,10 +264,9 @@ class MbServer:
                 }
             )
 
-            return m_out
+            m_out_list.append(m_out)
 
-        else:
-            return None
+        return m_out_list
 
     def run_server(self):
         # check the posts directory looks OK
@@ -298,9 +297,9 @@ class MbServer:
                         continue
 
                     elif m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.INFORM:
-                        m = self.process(m)
-                        if m is not None:
-                            send_to_comms(m)
+                        m_out_list: list[UnifiedMessage] = self.process(m)
+                        for m_out in m_out_list:
+                            send_to_comms(m_out)
 
                     c2b_q.task_done()
 
@@ -375,6 +374,13 @@ def main():
         default=None,
         help="Number of rotated log files to keep. Overrides config.ini [logging] log_backup_count.",
     )
+    parser.add_argument(
+        "--tcp-port",
+        dest="tcp_port",
+        type=int,
+        default=None,
+        help="The TCP port number that JS8Call is listening to for a connection from MbServer",
+    )
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -414,6 +420,13 @@ def main():
         backup_count=backup_count,
         console=True,
     )
+
+    if args.tcp_port is not None:
+        host, _ = SETTINGS.server
+        js8call_driver.js8call_addr = (host, args.tcp_port)
+        logger.info(
+            f"Overriding JS8Call TCP port: {host}:{args.tcp_port}"
+        )
 
     srv = MbServer()
     srv.run_server()
