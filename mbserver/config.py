@@ -8,12 +8,15 @@ from typing import Tuple
 
 _CONFIG_NAME = "config.ini"
 
+
 def _repo_root() -> Path:
     # mbserver/ lives one level below the repo root (where mbserver.bat lives)
     return Path(__file__).resolve().parents[1]
 
+
 def _config_path() -> Path:
     return _repo_root() / _CONFIG_NAME
+
 
 def _as_bool(cfg: configparser.ConfigParser, section: str, option: str, default: bool) -> bool:
     try:
@@ -21,15 +24,18 @@ def _as_bool(cfg: configparser.ConfigParser, section: str, option: str, default:
     except ValueError:
         return default
 
+
 def _as_int(cfg: configparser.ConfigParser, section: str, option: str, default: int) -> int:
     try:
         return cfg.getint(section, option, fallback=default)
     except ValueError:
         return default
 
+
 def _as_str(cfg: configparser.ConfigParser, section: str, option: str, default: str) -> str:
     val = cfg.get(section, option, fallback=default)
     return val if val is not None else default
+
 
 def _parse_log_level(value: str, default: int) -> int:
     if not value:
@@ -44,6 +50,7 @@ def _parse_log_level(value: str, default: int) -> int:
     if v.lower().startswith("logging."):
         v = v.split(".", 1)[1]
     return getattr(logging, v.upper(), default)
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -69,6 +76,7 @@ class Settings:
     log_file: str
     log_max_bytes: int
     log_backup_count: int
+
 
 def load_settings() -> Settings:
     cfg = configparser.ConfigParser()
@@ -141,6 +149,7 @@ def load_settings() -> Settings:
         log_max_bytes=log_max_bytes,
         log_backup_count=log_backup_count,
     )
+
 
 # Load once at import time for simplicity.
 SETTINGS: Settings = load_settings()

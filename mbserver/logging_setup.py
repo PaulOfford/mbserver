@@ -8,9 +8,12 @@ from dataclasses import dataclass
 from logging.handlers import RotatingFileHandler
 from typing import Optional
 
+
 @dataclass(frozen=True)
 class _TerminatorFilter(logging.Filter):
     terminator: str
+
+    # noinspection PyBroadException
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             msg = record.getMessage()
@@ -18,11 +21,14 @@ class _TerminatorFilter(logging.Filter):
                 record.msg = msg.replace(self.terminator, "")
                 record.args = ()
         except Exception:
+            # Logging must never break the application
             pass
         return True
 
+
 class _UTCFormatter(logging.Formatter):
     converter = time.gmtime
+
 
 def configure_logging(
     *,

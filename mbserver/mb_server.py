@@ -147,7 +147,6 @@ class CmdProcessors:
         # The req structure will look like this:
         # {'cmd': 'I~', 'verb': 'INFO', 'id_list': []}  -> get server info
 
-
         file_search = "info.txt"
 
         file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)

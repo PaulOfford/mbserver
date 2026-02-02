@@ -11,6 +11,7 @@ from .config import SETTINGS
 
 logger = logging.getLogger(__name__)
 
+
 class UpstreamStore:
     posts_url_root = ""
     posts_dir = ""
