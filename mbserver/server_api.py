@@ -30,16 +30,16 @@ def api_get_ids_for_recent() -> list:
     # The request looks like this {'cmd': api_request, 'verb': 'LIST', 'by': 'ID', 'id_list': []]}
     id_list = []
 
-    file_list = sorted(Path(posts_dir).glob(f"*.txt"), reverse=True)
+    file_list = sorted(Path(posts_dir).glob(f"* - * - *.txt"), reverse=True)
     file_names = [f.name for f in file_list]
 
     for i, fn in enumerate(file_names):
         if i >= lst_limit:
             break
 
-        post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)[0]
+        post_id = re.findall(r'^(\d+) - \d{4}-\d{2}-\d{2} - [\S\s]*\.txt', fn)
         if post_id:
-            id_list.append(int(post_id))
+            id_list.append(int(post_id[0]))
 
     return id_list
 
@@ -90,6 +90,17 @@ def api_parse_get(api_request: str) -> dict:
     }
 
 
+def api_parse_info(api_request: str) -> dict:
+    # {'cmd': 'I~', 'verb': 'INFO', 'post_id': []}  -> send server info from info.txt
+
+    return {
+        'cmd': api_request,
+        'verb': 'INFO',
+        'by': 'ID',
+        'id_list': []
+    }
+
+
 def api_parse_req(api_req: str) -> dict:
     # Here we normalise the input to produce a dictionary that we return to the caller.
     # The dictionary looks like one of these:
@@ -97,7 +108,8 @@ def api_parse_req(api_req: str) -> dict:
     # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
     # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
     # {'cmd': 'E2026-01-25~', 'verb': 'LIST', 'by': 'DATE', 'date': '2026-01-25'}  -> list 2026-01-25
-    # {'cmd': 'G12~', 'verb': 'GET', 'post_id': 6}  -> get #12
+    # {'cmd': 'G12~', 'verb': 'GET', 'post_id': 12}  -> get #12
+    # {'cmd': 'I~', 'verb': 'INFO', 'post_id': []}  -> send server info from info.txt
 
     # the following is a list of valid commands and
     # their corresponding command processors in the CmdProcessors class
@@ -109,6 +121,8 @@ def api_parse_req(api_req: str) -> dict:
         {'exp': r'^E\d{4}-\d{2}-\d{2}~', 'verb': 'LIST', 'by': 'ID'},
 
         {'exp': r'^G\d+~', 'verb': 'GET', 'by': 'ID'},
+
+        {'exp': r'^I~', 'verb': 'INFO', 'by': 'ID'},
     ]
 
     req_dict = {}
@@ -123,8 +137,11 @@ def api_parse_req(api_req: str) -> dict:
             req_dict = api_parse_list(api_req, entry)
         elif entry['verb'] == 'GET':
             req_dict = api_parse_get(api_req)
+        elif entry['verb'] == 'INFO':
+            req_dict = api_parse_info(api_req)
 
     return req_dict
+
 
 def api_get_req_components(req: str) -> dict:
     components = re.findall(r'^([A-Z0-9]+): *([A-Z0-9]+) *([\S ]*)$', req)[0]
@@ -134,12 +151,13 @@ def api_get_req_components(req: str) -> dict:
         'cmd': components[2],
     }
 
+
 def api_get_req_structure(mb_cmd: str) -> dict:
-    # mb_cmd is the get command, e.g. G1~ or M.G 1
+    # mb_cmd is a cli command (e.g. M.E) or an api command (e.g. E~)
 
     if mb_cmd[:2] == 'M.':
         # This is a CLI command that we need to translate to an api command
-        cmd = cli_translate(mb_cmd)
+        mb_cmd = cli_translate(mb_cmd)
 
     req_dict = api_parse_req(mb_cmd)
 

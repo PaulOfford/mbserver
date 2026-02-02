@@ -22,6 +22,8 @@ def cli_translate(command: str) -> str:
 
         {'exp': '^M.WX$', 'xlat': 'G0~', 'by': 'id'},
 
+        {'exp': '^M.I$', 'xlat': 'I~', 'by': 'id'},
+
         # The following commands are deprecated and now return extended listings.
         {'exp': '^M.L$', 'xlat': 'E~', 'by': 'id'},
         {'exp': '^M.L +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
