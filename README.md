@@ -46,3 +46,9 @@ You can override logging at runtime:
 - `--no-log-file`
 - `--max-log-bytes N`
 - `--log-backups N`
+
+You can also override the TCP port that MbServer connects to:
+
+- `--tcp-port _port_no_`
+
+This is useful if you have JS8Call TCP Server Port set to something other than 2442 during testing.

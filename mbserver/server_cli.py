@@ -14,18 +14,21 @@ def cli_translate(command: str) -> str:
     # the following list contains regex patterns used to check inbound API requests
     # and the corresponding cmd processor
     cli_format = [
-        {'exp': '^M.E$', 'xlat': 'E~', 'by': 'id'},
-        {'exp': '^M.E +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
-        {'exp': '^M.E +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
+        {'exp': r'^M.E$', 'xlat': 'E~', 'by': 'id'},
+        {'exp': r'^M.E +(\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
+        {'exp': r'^M.E +(\d{4}-\d{2}-\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
 
-        {'exp': '^M.G +(\\d+)$', 'xlat': 'G{param}~', 'by': 'id'},
+        {'exp': r'^M.G +(\d+)$', 'xlat': 'G{param}~', 'by': 'id'},
 
-        {'exp': '^M.WX$', 'xlat': 'G0~', 'by': 'id'},
+        {'exp': r'^M.WX$', 'xlat': 'G0~', 'by': 'id'},
+
+        {'exp': r'^M.I$', 'xlat': 'I~', 'by': 'id'},
+        {'exp': r'^M.\?$', 'xlat': 'I~', 'by': 'id'},
 
         # The following commands are deprecated and now return extended listings.
-        {'exp': '^M.L$', 'xlat': 'E~', 'by': 'id'},
-        {'exp': '^M.L +(\\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
-        {'exp': '^M.L +(\\d{4}-\\d{2}-\\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
+        {'exp': r'^M.L$', 'xlat': 'E~', 'by': 'id'},
+        {'exp': r'^M.L +(\d+)$', 'xlat': 'E{param}~', 'by': 'id'},
+        {'exp': r'^M.L +(\d{4}-\d{2}-\d{2})$', 'xlat': 'E{param}~', 'by': 'date'},
     ]
 
     translated_command = ""

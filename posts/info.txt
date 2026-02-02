@@ -1,0 +1,5 @@
+This is a microblog server.  Access from JS8Call or install MbClient.  From JS8Call, send these commands:
+
+M.L - list the latest posts
+M.G _n_ - get post _n_
+M.WX - get a weather report

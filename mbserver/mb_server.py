@@ -143,6 +143,27 @@ class CmdProcessors:
 
         return [f"+G{post_id}~\n{post_content}"]
 
+    def verb_info(self) -> list[str]:
+        # The req structure will look like this:
+        # {'cmd': 'I~', 'verb': 'INFO', 'id_list': []}  -> get server info
+
+
+        file_search = "info.txt"
+
+        file_path_name = sorted(Path(posts_dir).glob(file_search), reverse=True)
+
+        if len(file_path_name) == 0:
+            return ["-I~\nNO INFORMATION IS AVAILABLE FOR THIS SERVER"]
+
+        info_content = self.get_post_content(file_path_name[0])
+
+        # Tidy the post content.
+        info_content = info_content.replace('\r\n', '\n')
+        if replace_nl:
+            info_content = info_content.replace('\n', ' ')  # temp code until NL fixed
+
+        return [f"+I~\n{info_content}"]
+
 
 class MbAnnouncement:
 
@@ -156,7 +177,7 @@ class MbAnnouncement:
 
     @staticmethod
     def latest_post_meta() -> dict:
-        file_list = sorted(Path(posts_dir).glob(f"*.txt"), reverse=True)
+        file_list = sorted(Path(posts_dir).glob(f"* - * - *.txt"), reverse=True)
         latest_meta = [f.name for f in file_list][0]
 
         post_id, post_date = re.findall(r'^(\d+) - (\d{4}-\d{2}-\d{2}) - [\S\s]*\.txt', latest_meta)[0]
@@ -244,6 +265,7 @@ class MbServer:
         # {'cmd': 'E6~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6]}  -> list #6, #10 and #12
         # {'cmd': 'E6,10,12~', 'verb': 'LIST', 'by': 'ID', 'id_list': [6, 10, 12]}  -> list #6, #10 and #12
         # {'cmd': 'G12~', 'verb': 'GET', 'id_list': [12]}  -> get #12
+        # {'cmd': 'I~', 'verb': 'INFO', 'id_list': [12]}  -> get server info
 
         p = CmdProcessors()
 
@@ -251,6 +273,8 @@ class MbServer:
             mb_rsp_list = p.verb_list(req)
         elif req['verb'] == 'GET':
             mb_rsp_list = p.verb_get(req)
+        elif req['verb'] == 'INFO':
+            mb_rsp_list = p.verb_info()
 
         for mb_rsp in mb_rsp_list:
             m_out = UnifiedMessage(

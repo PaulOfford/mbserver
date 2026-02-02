@@ -90,3 +90,15 @@ Logging configuration lives in `config.ini`:
 - `LOG_FILE` (default `logs/mbserver.log`)
 - `LOG_MAX_BYTES` (rotate when file reaches this size)
 - `LOG_BACKUP_COUNT` (how many rotated logs to keep)
+
+# Command Line Arguments
+
+You can override some config.ini settings with command line arguments:
+
+- `--log-level DEBUG|INFO|WARNING|ERROR|CRITICAL` (or a numeric level)
+- `--log-file /path/to/mbserver.log`
+- `--no-log-file`
+- `--max-log-bytes N`
+- `--log-backups N`
+- `--tcp-port _port_no_`
+
