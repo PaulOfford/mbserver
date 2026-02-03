@@ -51,7 +51,7 @@ LOG_MAX_BYTES = SETTINGS.log_max_bytes
 LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 
-class COMMS_DISCONNECT(Exception):
+class CommsDisconnect(Exception):
     pass
 
 
@@ -316,7 +316,7 @@ class MbServer:
                         )
 
                     if m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.NOTE_DISCONNECT:
-                        raise COMMS_DISCONNECT(f"Comms communication has been disconnected")
+                        raise CommsDisconnect(f"Comms communication has been disconnected")
 
                     if self.this_blog == '':
                         # We can't go any further until we have the blog name
@@ -355,7 +355,7 @@ class MbServer:
 
                     self.mb_announcement.send_mb_announcement()
 
-            except (KeyboardInterrupt, COMMS_DISCONNECT):
+            except (KeyboardInterrupt, CommsDisconnect):
                 m = UnifiedMessage(
                     priority=0,
                     target=MessageTarget.COMMS,
