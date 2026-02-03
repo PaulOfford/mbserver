@@ -69,8 +69,8 @@ class Js8CallApi:
                 except ValueError:
                     pass
             else:
-                logger.info('ctrl: Connection to JS8Call has closed')
-                # ToDo: signal connection loss to backend, which should then add a QSO box entry
+                logger.info('Connection to JS8Call has closed')
+                messages.append({'type': 'DISCONNECT'})
 
         return messages  # we return a list of messages, typically with a length of one
 
@@ -179,18 +179,6 @@ class Js8CallDriver:
         return
 
     @staticmethod
-    def signal_frontend(verb: MessageVerb):
-        # These are the signa verbs we can send to the FRONTEND:
-        #   FLASH_RX_START, FLASH_RX_STOP, FLASH_TX_START, FLASH_TX_STOP, SCAN_OFF
-        m = UnifiedMessage.create(
-            priority=0,
-            target="FRONTEND",
-            typ="SIGNAL",
-            verb=verb
-        )
-        c2b_q.put(m)
-
-    @staticmethod
     def signal_backend(verb: MessageVerb, param):
         # These are the signal verbs we can send to the FRONTEND:
         #   NOTE_FREQ, NOTE_OFFSET, NOTE_CALLSIGN, NOTE_RX, NOTE_PTT
@@ -270,6 +258,11 @@ class Js8CallDriver:
                     self.rx_ind_timeout = time.time() + self.rx_duration
 
                     if not js8call_msg_type:
+                        continue
+
+                    elif js8call_msg_type == 'DISCONNECT':
+                        self.is_connected = False
+                        self.signal_backend(MessageVerb.NOTE_DISCONNECT, {})
                         continue
 
                     elif js8call_msg_type == 'RIG.PTT':

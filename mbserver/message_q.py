@@ -74,6 +74,7 @@ class MessageVerb(str, Enum):
     NOTE_CALLSIGN = "note_callsign"
     NOTE_PTT = "note_ptf"
     NOTE_RX = "note_rx"
+    NOTE_DISCONNECT = "note_disconnect"
 
     # To COMMS - MB_MSG
     SEND = "send"

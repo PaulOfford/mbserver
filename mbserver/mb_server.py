@@ -51,6 +51,10 @@ LOG_MAX_BYTES = SETTINGS.log_max_bytes
 LOG_BACKUP_COUNT = SETTINGS.log_backup_count
 
 
+class COMMS_DISCONNECT(Exception):
+    pass
+
+
 def send_to_comms(m: UnifiedMessage):
     if m.get_param(MessageParameter.MB_MSG):
         log_msg = m.get_param(MessageParameter.MB_MSG).split('\n')[0]
@@ -311,6 +315,9 @@ class MbServer:
                             f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
                         )
 
+                    if m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.NOTE_DISCONNECT:
+                        raise COMMS_DISCONNECT(f"Comms communication has been disconnected")
+
                     if self.this_blog == '':
                         # We can't go any further until we have the blog name
                         if m.get_verb() == MessageVerb.NOTE_CALLSIGN:
@@ -348,7 +355,7 @@ class MbServer:
 
                     self.mb_announcement.send_mb_announcement()
 
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, COMMS_DISCONNECT):
                 m = UnifiedMessage(
                     priority=0,
                     target=MessageTarget.COMMS,
