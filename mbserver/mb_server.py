@@ -252,6 +252,7 @@ class MbServer:
 
         if mb_req == 'Q':
             self.mb_announcement.next_announcement = 0
+            return []
 
         # mb_req is in the format _source_: _destination_ _mb_cmd_
         req = api_get_req_structure(mb_req)  # Go get a structured request
@@ -319,7 +320,11 @@ class MbServer:
                             c2b_q.task_done()
                         continue
 
-                    elif m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.INFORM:
+                    elif m.get_target() == MessageTarget.BACKEND and \
+                            (
+                                m.get_verb() == MessageVerb.INFORM
+                                or m.get_verb() == MessageVerb.ANNOUNCE
+                            ):
                         m_out_list: list[UnifiedMessage] = self.process(m)
                         for m_out in m_out_list:
                             send_to_comms(m_out)
