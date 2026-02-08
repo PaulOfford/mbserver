@@ -252,8 +252,6 @@ class MbServer:
 
         mb_req = self.tidy(m.get_param(MessageParameter.MB_MSG))
 
-        logger.info(f"RECV <- {m.get_param(MessageParameter.SOURCE)}: {mb_req}")  # console trace of messages received
-
         if mb_req == 'Q':
             self.mb_announcement.next_announcement = 0
             return []
@@ -262,7 +260,7 @@ class MbServer:
         req = api_get_req_structure(mb_req)  # Go get a structured request
 
         if req == {}:
-            logger.info('Not an MB request <- : ' + mb_req)
+            logger.debug('Not a valid MB request <- : ' + mb_req)
             return []
 
         # The req structure will look like one of these
@@ -309,13 +307,12 @@ class MbServer:
                 try:
                     m: UnifiedMessage = c2b_q.get(block=True, timeout=0.1)  # if no msg waiting, throw an except
 
-                    if m.get_typ() != MessageType.SIGNAL:
-                        logger.debug(
-                            f"Received from COMMS: " +
-                            f"{m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
-                        )
+                    logger.debug(
+                        f"Received from COMMS:" +
+                        f" {m.get_target()}|{m.get_typ()}|{m.get_verb()}|{m.get_params()}"
+                    )
 
-                    if m.get_target() == MessageTarget.BACKEND and m.get_verb() == MessageVerb.NOTE_DISCONNECT:
+                    if m.get_typ() == MessageType.SIGNAL and m.get_verb() == MessageVerb.NOTE_DISCONNECT:
                         raise CommsDisconnect(f"Comms communication has been disconnected")
 
                     if self.this_blog == '':
@@ -327,14 +324,18 @@ class MbServer:
                             c2b_q.task_done()
                         continue
 
-                    elif m.get_target() == MessageTarget.BACKEND and \
-                            (
-                                m.get_verb() == MessageVerb.INFORM
-                                or m.get_verb() == MessageVerb.ANNOUNCE
-                            ):
-                        m_out_list: list[UnifiedMessage] = self.process(m)
-                        for m_out in m_out_list:
-                            send_to_comms(m_out)
+                    elif m.get_typ() == MessageType.MB_MSG:
+                        if m.get_param(MessageParameter.DESTINATION) == self.this_blog \
+                                or m.get_param(MessageParameter.DESTINATION) == '@MB':
+                            # console trace of message received
+                            logger.info(
+                                f"RECV <-"
+                                f" {m.get_param(MessageParameter.SOURCE)}:"
+                                f" {m.get_param(MessageParameter.MB_MSG)}"
+                            )
+                            m_out_list: list[UnifiedMessage] = self.process(m)
+                            for m_out in m_out_list:
+                                send_to_comms(m_out)
 
                     c2b_q.task_done()
 
