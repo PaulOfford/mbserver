@@ -20,8 +20,8 @@ import os
 import sys
 import argparse
 
-from . import js8call_driver
-from .js8call_driver import *
+from . import driver
+from .driver import *
 from .server_api import *
 from .server_cli import *
 import logging
@@ -339,7 +339,7 @@ class MbServer:
 
                     c2b_q.task_done()
 
-                except queue.Empty:
+                except Empty:
                     pass
 
                 if self.this_blog == '':
@@ -459,7 +459,7 @@ def main():
 
     if args.tcp_port is not None:
         host, _ = SETTINGS.server
-        js8call_driver.js8call_addr = (host, args.tcp_port)
+        driver.JS8CALL_ADDR = (host, args.tcp_port)
         logger.info(
             f"Overriding JS8Call TCP port: {host}:{args.tcp_port}"
         )
